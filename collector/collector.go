@@ -200,9 +200,9 @@ func (c *Collector) prescrape(ctx context.Context) error {
 			return nil
 		}
 
-        // failed, session or transport is bad. We ditch the entire socket
-        // rather than only the session-based connection, just in case. Allow
-        // another second as probeCtx will likely have expired
+		// failed, session or transport is bad. We ditch the entire socket
+		// rather than only the session-based connection, just in case. Allow
+		// another second as probeCtx will likely have expired
 		cancelCtx, cancel := context.WithTimeout(ctx, time.Second)
 		_ = c.Close(cancelCtx)
 		cancel()
