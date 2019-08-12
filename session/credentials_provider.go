@@ -2,6 +2,7 @@ package session
 
 import (
 	"context"
+	"io"
 
 	"github.com/gebn/bmc"
 )
@@ -47,19 +48,25 @@ type credentialsProvider struct {
 	CredentialsRetriever
 }
 
-func (c credentialsProvider) Session(ctx context.Context, addr string) (bmc.Session, error) {
+func (c credentialsProvider) Session(ctx context.Context, addr string) (bmc.Session, io.Closer, error) {
 	creds, err := c.CredentialsRetriever.Credentials(ctx, addr)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	machine, err := bmc.Dial(ctx, addr)
+	machine, err := bmc.DialV2(addr) // TODO change to .Dial when v1.5 supported
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	sess, err := machine.NewSession(ctx, creds.Username, creds.Password)
 	if err != nil {
 		machine.Close()
-		return nil, err
+		return nil, nil, err
 	}
-	return sess, nil
+	return sess, machine, nil
 }
+
+// TODO how do structs implement CredentialsProvider, while having a New()
+// method that returns the struct type and implements Provider? If the struct
+// had a Close(), the concrete type must be returned as it is not part of the
+// Provider interface. It involves embedding a Provider and the struct
+// referencing itself, which is messy.

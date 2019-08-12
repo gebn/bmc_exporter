@@ -29,12 +29,19 @@ def _kingpin():
 def deps():
     _kingpin()
 
-    #_maybe(
-    #    go_repository,
-    #    name = "com_github_gebn_go_stamp",
-    #    tag = "v2.0.1",
-    #    importpath = "github.com/gebn/go-stamp",
-    #)
+    _maybe(
+        go_repository,
+        name = "com_github_gebn_go_stamp",
+        tag = "v2.0.1",
+        importpath = "github.com/gebn/go-stamp",
+    )
+
+    _maybe(
+        go_repository,
+        name = "com_github_go_yaml_yaml",
+        tag = "v2.2.2",
+        importpath = "github.com/go-yaml/yaml",
+    )
 
     #go_repository(
     #    name = "com_github_fsnotify_fsnotify",

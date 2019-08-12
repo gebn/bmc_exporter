@@ -1,3 +1,5 @@
+build --stamp
+build --workspace_status_command=bin/workspace_status
 build --verbose_failures
 test --features=race
 test --test_output=errors

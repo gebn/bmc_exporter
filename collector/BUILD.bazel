@@ -1,0 +1,18 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "collector.go",
+        "commands.go",
+    ],
+    importpath = "github.com/gebn/bmc_exporter/collector",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//session:go_default_library",
+        "@com_github_gebn_bmc//:go_default_library",
+        "@com_github_gebn_bmc//pkg/dcmi:go_default_library",
+        "@com_github_gebn_bmc//pkg/ipmi:go_default_library",
+        "@com_github_prometheus_client_golang//prometheus:go_default_library",
+    ],
+)

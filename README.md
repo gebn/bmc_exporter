@@ -20,7 +20,7 @@ The exporter requires IPMI *User* privileges on each BMC it scrapes.
 
 Only a very limited set of data is available over IPMI without establishing a session, so establishing one is necessary for any useful client.
 The exporter is IPMI version agnostic, so to abstract the core logic away from session establishment, there is the concept of *session providers*.
-Providers implement the method `Session(addr string) (bmc.Session, error)`.
+Providers essentially turn the target string given to the exporter by Prometheus into a `bmc.Session`.
 While there is provision in the specification for anonymous authentication, and this is supported, most BMCs will have a username and password configured, if only by the manufacturer.
 Currently, there is a single provider implementation that reads usernames and passwords from a config file (`secrets.yml`), however if you have stronger security, you can implement one to retrieve them by any means, e.g. over the network.
 
