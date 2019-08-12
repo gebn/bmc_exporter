@@ -20,10 +20,10 @@ var (
 	namespace = "bmc"
 	subsystem = "collector"
 
-	duration = promauto.NewHistogram(prometheus.HistogramOpts{
+	collectDuration = promauto.NewHistogram(prometheus.HistogramOpts{
 		Namespace: namespace,
 		Subsystem: subsystem,
-		Name:      "duration_seconds",
+		Name:      "collect_duration_seconds",
 		Help:      "Observes the time taken by each BMC scrape.",
 	})
 	providerRequests = promauto.NewCounter(prometheus.CounterOpts{
@@ -204,7 +204,7 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	)
 
 	elapsed := time.Since(start)
-	duration.Observe(elapsed.Seconds())
+	collectDuration.Observe(elapsed.Seconds())
 	ch <- prometheus.MustNewConstMetric(
 		scrapeDuration,
 		prometheus.GaugeValue,
