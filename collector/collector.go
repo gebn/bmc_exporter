@@ -13,9 +13,33 @@ import (
 	"github.com/gebn/bmc/pkg/dcmi"
 	"github.com/gebn/bmc/pkg/ipmi"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 var (
+	namespace = "bmc"
+	subsystem = "collector"
+
+	duration = promauto.NewHistogram(prometheus.HistogramOpts{
+		Namespace: namespace,
+		Subsystem: subsystem,
+		Name:      "duration_seconds",
+		Help:      "Observes the time taken by each BMC scrape.",
+	})
+	providerRequests = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: namespace,
+		Subsystem: subsystem,
+		Name:      "provider_requests_total",
+		Help:      "The number of session requests made to a session provider.",
+	})
+	sessionExpiriesTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: namespace,
+		Subsystem: subsystem,
+		Name:      "session_expiries_total",
+		Help: "The number of sessions that we have detected to have stopped " +
+			"working will have tried to re-establish.",
+	})
+
 	// "meta" scrape metrics
 
 	lastScrape = prometheus.NewDesc(
@@ -179,11 +203,12 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 		boolToFloat64(success),
 	)
 
-	duration := time.Since(start)
+	elapsed := time.Since(start)
+	duration.Observe(elapsed.Seconds())
 	ch <- prometheus.MustNewConstMetric(
 		scrapeDuration,
 		prometheus.GaugeValue,
-		duration.Seconds(),
+		elapsed.Seconds(),
 	)
 }
 
@@ -199,6 +224,7 @@ func (c *Collector) prescrape(ctx context.Context) error {
 			// we hope this will be the most common case
 			return nil
 		}
+		sessionExpiriesTotal.Inc()
 
 		// failed, session or transport is bad. We ditch the entire socket
 		// rather than only the session-based connection, just in case. Allow
@@ -219,6 +245,7 @@ func (c *Collector) prescrape(ctx context.Context) error {
 // relieve subsequent scrapes of doing this. This method will only return a nil
 // error if c.session != nil.
 func (c *Collector) newSession(ctx context.Context) error {
+	providerRequests.Inc()
 	sess, closer, err := c.Provider.Session(ctx, c.Target)
 	if err != nil {
 		return err
