@@ -1,5 +1,8 @@
 # Prometheus BMC Exporter
 
+[![Build Status](https://travis-ci.org/gebn/bmc_exporter.svg?branch=master)](https://travis-ci.org/gebn/bmc_exporter)
+[![Go Report Card](https://goreportcard.com/badge/github.com/gebn/bmc_exporter)](https://goreportcard.com/report/github.com/gebn/bmc_exporter)
+
 This is a [Prometheus](https://prometheus.io/docs/introduction/overview/) [exporter](https://prometheus.io/docs/instrumenting/exporters/) for Baseboard Management Controllers, or BMCs.
 It is special in that there is no dependency on `ipmitool`, `freeipmi` or `openipmi` - the underlying communication is implemented in pure Go by the [`bmc`](https://github.com/gebn/bmc) library.
 This allows not only the exporter to run very efficiently, but reduces the load on BMCs by keeping sessions open and caching discovered capabilities, meaning fewer commands need to be run each scrape.
