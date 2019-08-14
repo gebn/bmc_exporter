@@ -2,9 +2,18 @@ package session
 
 import (
 	"context"
+	"errors"
 	"io"
 
 	"github.com/gebn/bmc"
+)
+
+var (
+	// ErrCredentialNotFound is returned when a CredentialsRetriever can
+	// confidently say it does not know of the BMC, or has no credentials for
+	// it. This is provided for convenience; no branching is done based on this
+	// value being returned.
+	ErrCredentialNotFound = errors.New("no credential found for addr")
 )
 
 // Credentials represents a username and password pair, giving access to a BMC.

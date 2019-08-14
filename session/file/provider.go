@@ -9,16 +9,11 @@ package file
 
 import (
 	"context"
-	"errors"
 	"os"
 
 	"github.com/gebn/bmc_exporter/session"
 
 	"github.com/go-yaml/yaml"
-)
-
-var (
-	NotFound = errors.New("no credential found for addr")
 )
 
 type credentials struct {
@@ -35,7 +30,7 @@ type Provider struct {
 func (p Provider) Credentials(ctx context.Context, addr string) (*session.Credentials, error) {
 	creds, ok := p.credentials[addr]
 	if !ok {
-		return nil, NotFound
+		return nil, session.ErrCredentialNotFound
 	}
 	return &creds, nil
 }
