@@ -3,6 +3,7 @@ package collector
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"io"
 	"sync"
 	"time"
@@ -98,9 +99,9 @@ var (
 		"Whether a disk drive in the system is faulty, according to Get Chassis Status.",
 		nil, nil,
 	)
-	chassisPowerConsumption = prometheus.NewDesc(
-		"chassis_power_consumption_watts",
-		"The system's current power draw. This requires DCMI to be supported and the hardware correctly configured.",
+	chassisPowerDraw = prometheus.NewDesc(
+		"chassis_power_draw_watts",
+		"The instantaneous amount of electricity being used by the machine. This requires DCMI to be supported and the hardware correctly configured.",
 		nil, nil,
 	)
 )
@@ -167,7 +168,7 @@ func (c *Collector) Describe(d chan<- *prometheus.Desc) {
 	d <- chassisPowerFault
 	d <- chassisCoolingFault
 	d <- chassisDriveFault
-	d <- chassisPowerConsumption
+	d <- chassisPowerDraw
 }
 
 func (c *Collector) Collect(ch chan<- prometheus.Metric) {
@@ -278,6 +279,11 @@ func (c *Collector) collect(ctx context.Context, ch chan<- prometheus.Metric) []
 	if err := c.chassisStatus(ctx, ch); err != nil {
 		errs = append(errs, err)
 	}
+	if c.supportsGetPowerReading {
+		if err := c.powerDraw(ctx, ch); err != nil {
+			errs = append(errs, err)
+		}
+	}
 	return errs
 }
 
@@ -348,6 +354,23 @@ func (c *Collector) chassisStatus(ctx context.Context, ch chan<- prometheus.Metr
 		boolToFloat64(rsp.DriveFault),
 	)
 
+	return nil
+}
+
+func (c *Collector) powerDraw(ctx context.Context, ch chan<- prometheus.Metric) error {
+	if err := bmc.ValidateResponse(c.session.SendCommand(ctx,
+		&c.commands.getPowerReading)); err != nil {
+		return err
+	}
+	rsp := &c.commands.getPowerReading.Rsp
+	if !rsp.Active {
+		return errors.New("BMC indicated power measurement is inactive")
+	}
+	ch <- prometheus.MustNewConstMetric(
+		chassisPowerDraw,
+		prometheus.GaugeValue,
+		float64(rsp.Instantaneous),
+	)
 	return nil
 }
 
