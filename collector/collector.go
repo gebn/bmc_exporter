@@ -192,7 +192,7 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	if err := c.prescrape(ctx); err == nil {
 
 		// collect bmc-specific metrics
-		if err := c.collect(ctx, ch); err == nil {
+		if errs := c.collect(ctx, ch); len(errs) == 0 {
 			success = true
 		}
 	}
@@ -270,14 +270,15 @@ func (c *Collector) newSession(ctx context.Context) error {
 	return nil
 }
 
-func (c *Collector) collect(ctx context.Context, ch chan<- prometheus.Metric) error {
+func (c *Collector) collect(ctx context.Context, ch chan<- prometheus.Metric) []error {
+	errs := []error{}
 	if err := c.bmcInfo(ctx, ch); err != nil {
-		return err
+		errs = append(errs, err)
 	}
 	if err := c.chassisStatus(ctx, ch); err != nil {
-		return err
+		errs = append(errs, err)
 	}
-	return nil
+	return errs
 }
 
 func (c *Collector) bmcInfo(ctx context.Context, ch chan<- prometheus.Metric) error {
