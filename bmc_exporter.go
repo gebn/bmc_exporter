@@ -51,7 +51,7 @@ var (
 	staticSecrets = kingpin.Flag("session.static.secrets", "Used by the "+
 		"static session provider to look up BMC credentials.").
 		Default("secrets.yml").
-		ExistingFile()
+		String() // we don't use ExistingFile() due to kingpin issue #261
 )
 
 func main() {
