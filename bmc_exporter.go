@@ -16,8 +16,6 @@ import (
 )
 
 var (
-	help = "An IPMI v1.5/2.0 Prometheus exporter."
-
 	namespace = "bmc"
 
 	buildInfo = promauto.NewGaugeVec(
@@ -31,14 +29,29 @@ var (
 		// the runtime version is already exposed by the default Go collector
 		[]string{"version", "commit"},
 	)
-
 	buildTime = promauto.NewGauge(prometheus.GaugeOpts{
 		Namespace: namespace,
 		Subsystem: "exporter",
 		Name:      "build_time",
-		Help: "When the running exporter was build, expressed as seconds since" +
-			"the Unix Epoch.",
+		Help: "When the running exporter was build, expressed as seconds " +
+			"since the Unix Epoch.",
 	})
+
+	help = "An IPMI v1.5/2.0 Prometheus exporter."
+
+	listenAddr = kingpin.Flag("web.listen-address", "Address on which to "+
+		"expose metrics.").
+		Default(":9622").
+		String()
+	scrapeTimeout = kingpin.Flag("scrape.timeout", "BMC scrapes will return "+
+		"early after this long. This value should be slightly shorter than "+
+		"the Prometheus scrape_timeout.").
+		Default("8s"). // ~1.5s delay + network RTT
+		Duration()
+	staticSecrets = kingpin.Flag("session.static.secrets", "Used by the "+
+		"static session provider to look up BMC credentials.").
+		Default("secrets.yml").
+		ExistingFile()
 )
 
 func main() {
@@ -49,7 +62,7 @@ func main() {
 	kingpin.Version(stamp.Summary())
 	kingpin.Parse()
 
-	provider, err := file.New("secrets.yml")
+	provider, err := file.New(*staticSecrets)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -57,7 +70,7 @@ func main() {
 	c := &collector.Collector{
 		Target:   "",
 		Provider: provider,
-		Timeout:  time.Second * 8, // there seems to be a 2s delay before it stops
+		Timeout:  *scrapeTimeout,
 	}
 	reg := prometheus.NewPedanticRegistry() // TODO change to NewRegistry once all confirmed working
 	if err := reg.Register(c); err != nil {
@@ -68,5 +81,5 @@ func main() {
 
 	http.Handle("/bmc", bmcHandler)
 	http.Handle("/metrics", promhttp.Handler())
-	log.Fatal(http.ListenAndServe(":9622", nil))
+	log.Fatal(http.ListenAndServe(*listenAddr, nil))
 }
