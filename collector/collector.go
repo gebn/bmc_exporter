@@ -167,6 +167,7 @@ func (c *Collector) Describe(d chan<- *prometheus.Desc) {
 	d <- lastScrape
 	d <- scrapeDuration
 	d <- up
+	d <- scrapeErrors
 	d <- bmcInfo
 	d <- chassisPoweredOn
 	d <- chassisIntrusion
