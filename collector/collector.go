@@ -199,9 +199,7 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 		errors = append(errors, err)
 	} else {
 		// collect bmc-specific metrics
-		if errs := c.collect(ctx, ch); len(errs) != 0 {
-			errors = append(errors, errs...)
-		}
+		errors = append(errors, c.collect(ctx, ch)...)
 	}
 
 	ch <- prometheus.MustNewConstMetric(
