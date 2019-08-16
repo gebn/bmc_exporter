@@ -23,8 +23,7 @@ var (
 			Namespace: namespace,
 			Subsystem: "exporter",
 			Name:      "build_info",
-			Help: "Indicates the version and commit from which the running " +
-				"exporter was built. Always has a value of 1.",
+			Help:      "The version and commit of the running exporter. Constant 1.",
 		},
 		// the runtime version is already exposed by the default Go collector
 		[]string{"version", "commit"},
@@ -33,8 +32,7 @@ var (
 		Namespace: namespace,
 		Subsystem: "exporter",
 		Name:      "build_time",
-		Help: "When the running exporter was build, expressed as seconds " +
-			"since the Unix Epoch.",
+		Help:      "When the running exporter was build, as seconds since the Unix Epoch.",
 	})
 
 	help = "An IPMI v1.5/2.0 Prometheus exporter."

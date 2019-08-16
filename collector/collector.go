@@ -25,29 +25,28 @@ var (
 		Namespace: namespace,
 		Subsystem: subsystem,
 		Name:      "collect_duration_seconds",
-		Help:      "Observes the time taken by each BMC scrape.",
+		Help:      "Observes the time taken by each BMC collection.",
 	})
 	providerRequests = promauto.NewCounter(prometheus.CounterOpts{
 		Namespace: namespace,
 		Subsystem: subsystem,
 		Name:      "provider_requests_total",
-		Help:      "The number of session requests made to a session provider.",
+		Help:      "The number of requests made to a session provider.",
 	})
 	sessionExpiriesTotal = promauto.NewCounter(prometheus.CounterOpts{
 		Namespace: namespace,
 		Subsystem: subsystem,
 		Name:      "session_expiries_total",
-		Help: "The number of sessions that we have detected to have stopped " +
-			"working will have tried to re-establish.",
+		Help:      "The number of sessions that we have decided have stopped working. On the next scrape, these would be re-established.",
 	})
 
 	// "meta" scrape metrics
 
 	lastScrape = prometheus.NewDesc(
 		"bmc_last_scrape",
-		"When this BMC was last scraped by this exporter, expressed as "+
+		"When the BMC was last scraped by this exporter, expressed as "+
 			"seconds since the Unix epoch. This metric will not be present "+
-			"in the first scrape of a BMC.",
+			"in the first scrape of a given BMC.",
 		nil, nil,
 	)
 	scrapeDuration = prometheus.NewDesc(
@@ -106,7 +105,7 @@ var (
 	)
 	chassisPowerDraw = prometheus.NewDesc(
 		"chassis_power_draw_watts",
-		"The instantaneous amount of electricity being used by the machine. This requires DCMI to be supported and the hardware correctly configured.",
+		"The instantaneous amount of electricity being used by the machine.",
 		nil, nil,
 	)
 )
