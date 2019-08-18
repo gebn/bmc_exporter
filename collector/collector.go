@@ -59,11 +59,6 @@ var (
 		"1 if the exporter was able to gather all desired metrics this scrape, 0 otherwise.",
 		nil, nil,
 	)
-	scrapeErrors = prometheus.NewDesc(
-		"bmc_scrape_errors",
-		"The number of stages of the scrape that failed, resulting in missing metrics.",
-		nil, nil,
-	)
 
 	// concrete metrics about a BMC
 
@@ -166,7 +161,6 @@ func (c *Collector) Describe(d chan<- *prometheus.Desc) {
 	d <- lastScrape
 	d <- scrapeDuration
 	d <- up
-	d <- scrapeErrors
 	d <- bmcInfo
 	d <- chassisPoweredOn
 	d <- chassisIntrusion
@@ -193,24 +187,19 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	}
 	c.lastCollection = start
 
-	errors := []error{}
+	success := false
 	// ensure we have a working session before continuing
-	if err := c.prescrape(ctx); err != nil {
-		errors = append(errors, err)
-	} else {
+	if err := c.prescrape(ctx); err == nil {
 		// collect bmc-specific metrics
-		errors = append(errors, c.collect(ctx, ch)...)
+		if errs := c.collect(ctx, ch); len(errs) == 0 {
+			success = true
+		}
 	}
 
 	ch <- prometheus.MustNewConstMetric(
 		up,
 		prometheus.GaugeValue,
-		boolToFloat64(len(errors) == 0),
-	)
-	ch <- prometheus.MustNewConstMetric(
-		scrapeErrors,
-		prometheus.GaugeValue,
-		float64(len(errors)),
+		boolToFloat64(success),
 	)
 
 	elapsed := time.Since(start)
