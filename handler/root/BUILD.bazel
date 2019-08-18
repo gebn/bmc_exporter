@@ -1,0 +1,9 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["root.go"],
+    importpath = "github.com/gebn/bmc_exporter/handler/root",
+    visibility = ["//visibility:public"],
+    deps = ["@com_github_gebn_go_stamp//:go_default_library"],
+)

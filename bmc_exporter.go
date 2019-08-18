@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gebn/bmc_exporter/collector"
+	"github.com/gebn/bmc_exporter/handler/root"
 	"github.com/gebn/bmc_exporter/session/file"
 
 	"github.com/alecthomas/kingpin"
@@ -77,6 +78,7 @@ func main() {
 	}
 	bmcHandler := promhttp.HandlerFor(reg, promhttp.HandlerOpts{})
 
+	http.Handle("/", root.Handler())
 	http.Handle("/bmc", bmcHandler)
 	http.Handle("/metrics", promhttp.Handler())
 	log.Fatal(http.ListenAndServe(*listenAddr, nil))
