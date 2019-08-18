@@ -46,6 +46,18 @@ type Provider interface {
 	Session(ctx context.Context, addr string) (bmc.Session, io.Closer, error)
 }
 
-// returning the io.Closer is messy, but there are not many ways around this,
+// Don't mix up providers indicating they don't know about an addr with
+// back-offs: the former means "I don't have credentials", and is only relevant
+// until the next reload at the latest (in the case of the file provider; the
+// hypothetical Vault provider will get new BMCs at any time without a reload)
+// and the latter "I have credentials, but failed to establish a session". We
+// don't want a sentinel error indicating "Don't ask me again", as that is
+// bespoke to providers using a static config, which is a special case. A map
+// lookup takes next to no time, so don't design a system around avoiding it.
+// Query the session provider once each scrape, let it return quickly if it
+// doesn't know about the addr, and do its own retrying if it does. The name is
+// Provider, not ProviderButRetryMeIfYouGetAnErrorKThxBye.
+//
+// Returning the io.Closer is messy, but there are not many ways around this,
 // short of giving the provider an already-open UDP socket, but then it would
 // not be able to create the session-less connection.
