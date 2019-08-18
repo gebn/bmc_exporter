@@ -12,6 +12,25 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
+var (
+	namespace = "bmc"
+	subsystem = "mapper"
+
+	queries = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: namespace,
+		Subsystem: subsystem,
+		Name:      "queries_total",
+		Help: "The number of times a handler has been requested from the " +
+			"mapper.",
+	})
+	hits = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: namespace,
+		Subsystem: subsystem,
+		Name:      "hits_total",
+		Help:      "The number of times a previously created handler was returned.",
+	})
+)
+
 // Mapper manages the http.Handler we create for each BMC being scraped. Given a
 // target addr, it returns a promhttp-created handler that, when invoked, will
 // retrieve and yield metrics for that BMC.
@@ -39,12 +58,14 @@ func NewMapper(provider session.Provider, timeout time.Duration) *Mapper {
 // return the original handler, otherwise it will create a new one. It is
 // effectively a synchronised, lazy map access.
 func (m *Mapper) Handler(addr string) http.Handler {
+	queries.Inc()
 	// first, try with a read lock, optimistically assuming it's there; this
 	// will be the case most of the time
 	m.mu.RLock()
 	handler, ok := m.handlers[addr]
 	m.mu.RUnlock()
 	if ok {
+		hits.Inc()
 		return handler
 	}
 
@@ -72,5 +93,4 @@ func (m *Mapper) Handler(addr string) http.Handler {
 	return handler
 }
 
-// TODO instrument hits and misses as if we were a cache - we essentially are
 // TODO GC
