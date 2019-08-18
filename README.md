@@ -47,5 +47,5 @@ Any mildly recent BMC likely supports v2.0.
 
 IPMI itself does not specify any commands for retrieving overall power use of the system - only motherboard rails.
 If the BMC supports [DCMI](https://www.intel.com/content/dam/www/public/us/en/documents/technical-specifications/dcmi-v1-5-rev-spec.pdf) (an extension of IPMI v2.0), and the machine's PSU supports PMBus, this exporter will expose the machine's power consumption.
-If you do not see the `chassis_power_consumption_watts` metric, it is because the BMC does not satisfy one of these criteria.
+If you do not see the `chassis_power_draw_watts` metric, it is because the BMC does not satisfy one of these criteria.
 You can use the underlying [`bmc`](https://github.com/gebn/bmc) library to investigate this further.
