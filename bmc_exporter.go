@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gebn/bmc_exporter/collector"
+	"github.com/gebn/bmc_exporter/handler/bmc"
 	"github.com/gebn/bmc_exporter/handler/root"
 	"github.com/gebn/bmc_exporter/session/file"
 
@@ -66,20 +66,8 @@ func main() {
 		log.Fatal(err)
 	}
 
-	c := &collector.Collector{
-		Target:   "",
-		Provider: provider,
-		Timeout:  *scrapeTimeout,
-	}
-	reg := prometheus.NewPedanticRegistry() // TODO change to NewRegistry once all confirmed working
-	if err := reg.Register(c); err != nil {
-		// would return 5xx error - main thing is not to panic
-		log.Fatal(err)
-	}
-	bmcHandler := promhttp.HandlerFor(reg, promhttp.HandlerOpts{})
-
 	http.Handle("/", root.Handler())
-	http.Handle("/bmc", bmcHandler)
+	http.Handle("/bmc", bmc.Handler(bmc.NewMapper(provider, *scrapeTimeout)))
 	http.Handle("/metrics", promhttp.Handler())
 	log.Fatal(http.ListenAndServe(*listenAddr, nil))
 }

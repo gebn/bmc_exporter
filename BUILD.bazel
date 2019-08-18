@@ -10,7 +10,7 @@ go_library(
     importpath = "github.com/gebn/bmc_exporter",
     visibility = ["//visibility:private"],
     deps = [
-        "//collector:go_default_library",
+        "//handler/bmc:go_default_library",
         "//handler/root:go_default_library",
         "//session/file:go_default_library",
         "@com_github_alecthomas_kingpin//:go_default_library",
