@@ -30,7 +30,7 @@ gazelle_dependencies()
 
 go_repository(
     name = "com_github_gebn_bmc",
-    commit = "14fc5e2c60ff4ad6daff07a65273013fe7da4062",
+    commit = "eee09d8deac72f7e847ccd4e312393bf3ae711db",
     importpath = "github.com/gebn/bmc",
 )
 # TODO Bazel doesn't like when this is moved into the deps() function - workaround?
