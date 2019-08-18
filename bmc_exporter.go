@@ -18,11 +18,12 @@ import (
 
 var (
 	namespace = "bmc"
+	subsystem = "exporter"
 
 	buildInfo = promauto.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Namespace: namespace,
-			Subsystem: "exporter",
+			Subsystem: subsystem,
 			Name:      "build_info",
 			Help:      "The version and commit of the running exporter. Constant 1.",
 		},
@@ -31,10 +32,20 @@ var (
 	)
 	buildTime = promauto.NewGauge(prometheus.GaugeOpts{
 		Namespace: namespace,
-		Subsystem: "exporter",
+		Subsystem: subsystem,
 		Name:      "build_time",
 		Help:      "When the running exporter was build, as seconds since the Unix Epoch.",
 	})
+	requestDuration = promauto.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: namespace,
+			Subsystem: subsystem,
+			Name:      "request_duration_seconds",
+			Help: "The time taken to execute the handlers of web server " +
+				"endpoints.",
+		},
+		[]string{"path"},
+	)
 
 	help = "An IPMI v1.5/2.0 Prometheus exporter."
 
@@ -51,17 +62,6 @@ var (
 		"static session provider to look up BMC credentials.").
 		Default("secrets.yml").
 		String() // we don't use ExistingFile() due to kingpin issue #261
-
-	requestDuration = promauto.NewHistogramVec(
-		prometheus.HistogramOpts{
-			Namespace: namespace,
-			Subsystem: "handler",
-			Name:      "request_duration_seconds",
-			Help: "The time taken to execute the handlers of web server " +
-				"endpoints.",
-		},
-		[]string{"path"},
-	)
 )
 
 func init() {
