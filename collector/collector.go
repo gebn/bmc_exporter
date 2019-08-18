@@ -51,7 +51,7 @@ var (
 	)
 	scrapeDuration = prometheus.NewDesc(
 		"bmc_scrape_duration_seconds",
-		"The amount of time collection of BMC metrics took for this scrape, measured by the exporter.",
+		"The time taken to collect all metrics, measured by the exporter.",
 		nil, nil,
 	)
 	up = prometheus.NewDesc(
@@ -69,7 +69,7 @@ var (
 
 	bmcInfo = prometheus.NewDesc(
 		"bmc_info",
-		"Provides the BMC's GUID, manufacturer name, firmware version, and the IPMI version used to scrape it. Constant 1.",
+		"Provides the BMC's GUID, manufacturer, firmware, and the version of IPMI used to scrape it. Constant 1.",
 		[]string{
 			"guid",         // Get System GUID
 			"manufacturer", // Get Device ID
