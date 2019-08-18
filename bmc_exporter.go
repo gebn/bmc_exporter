@@ -51,7 +51,24 @@ var (
 		"static session provider to look up BMC credentials.").
 		Default("secrets.yml").
 		String() // we don't use ExistingFile() due to kingpin issue #261
+
+	requestDuration = promauto.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: namespace,
+			Subsystem: "handler",
+			Name:      "request_duration_seconds",
+			Help: "The time taken to execute the handlers of web server " +
+				"endpoints.",
+		},
+		[]string{"path"},
+	)
 )
+
+func init() {
+	for _, path := range []string{"/", "/bmc", "/metrics"} {
+		requestDuration.WithLabelValues(path)
+	}
+}
 
 func main() {
 	buildInfo.WithLabelValues(stamp.Version, stamp.Commit).Set(1)
@@ -66,8 +83,23 @@ func main() {
 		log.Fatal(err)
 	}
 
-	http.Handle("/", root.Handler())
-	http.Handle("/bmc", bmc.Handler(bmc.NewMapper(provider, *scrapeTimeout)))
-	http.Handle("/metrics", promhttp.Handler())
+	http.Handle("/", promhttp.InstrumentHandlerDuration(
+		requestDuration.MustCurryWith(prometheus.Labels{
+			"path": "/",
+		}),
+		root.Handler(),
+	))
+	http.Handle("/bmc", promhttp.InstrumentHandlerDuration(
+		requestDuration.MustCurryWith(prometheus.Labels{
+			"path": "/bmc",
+		}),
+		bmc.Handler(bmc.NewMapper(provider, *scrapeTimeout)),
+	))
+	http.Handle("/metrics", promhttp.InstrumentHandlerDuration(
+		requestDuration.MustCurryWith(prometheus.Labels{
+			"path": "/metrics",
+		}),
+		promhttp.Handler(),
+	))
 	log.Fatal(http.ListenAndServe(*listenAddr, nil))
 }
