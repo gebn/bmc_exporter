@@ -46,7 +46,7 @@ var (
 		"bmc_last_scrape",
 		"When the BMC was last scraped by this exporter, expressed as "+
 			"seconds since the Unix epoch. This metric will not be present "+
-			"in the first scrape of a given BMC.",
+			"in the first scrape of a given BMC, including after GC.",
 		nil, nil,
 	)
 	scrapeDuration = prometheus.NewDesc(
@@ -149,10 +149,21 @@ type Collector struct {
 // Close cleanly terminates the underlying BMC connection that powers the
 // collector. This is used to cleanly shut down the exporter.
 func (c *Collector) Close(ctx context.Context) error {
+	c.mux.Lock()
+	defer c.mux.Unlock()
 	if err := c.session.Close(ctx); err != nil {
 		return err
 	}
 	return c.closer.Close()
+}
+
+// LastCollection returns when this collector was last invoked. It is used by
+// mapper GC to determine which BMCs are no longer being scraped, so their
+// http.Handlers can be removed.
+func (c *Collector) LastCollection() time.Time {
+	c.mux.Lock()
+	defer c.mux.Unlock()
+	return c.lastCollection
 }
 
 func (c *Collector) Describe(d chan<- *prometheus.Desc) {

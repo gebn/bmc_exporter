@@ -82,6 +82,8 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	mapper := bmc.NewMapper(provider, *scrapeTimeout)
+	defer mapper.Close()
 
 	http.Handle("/", promhttp.InstrumentHandlerDuration(
 		requestDuration.MustCurryWith(prometheus.Labels{
@@ -93,7 +95,7 @@ func main() {
 		requestDuration.MustCurryWith(prometheus.Labels{
 			"path": "/bmc",
 		}),
-		bmc.Handler(bmc.NewMapper(provider, *scrapeTimeout)),
+		bmc.Handler(mapper),
 	))
 	http.Handle("/metrics", promhttp.InstrumentHandlerDuration(
 		requestDuration.MustCurryWith(prometheus.Labels{
