@@ -1,8 +1,13 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"sync"
 	"time"
 
 	"github.com/gebn/bmc_exporter/handler/bmc"
@@ -84,6 +89,8 @@ func main() {
 	}
 	mapper := bmc.NewMapper(provider, *scrapeTimeout)
 	defer mapper.Close()
+	// we must not exit with os.Exit (e.g. log.Fatal) from now on, otherwise the
+	// mapper, and hence BMC connections, will not be closed
 
 	http.Handle("/", promhttp.InstrumentHandlerDuration(
 		requestDuration.MustCurryWith(prometheus.Labels{
@@ -103,5 +110,30 @@ func main() {
 		}),
 		promhttp.Handler(),
 	))
-	log.Fatal(http.ListenAndServe(*listenAddr, nil))
+
+	srv := &http.Server{
+		Addr: *listenAddr,
+	}
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
+			// without the wait group, this line may not be printed in case of
+			// failure
+			log.Printf("server did not close cleanly: %v", err)
+		}
+	}()
+
+	quit := make(chan os.Signal)
+	signal.Notify(quit, os.Interrupt)
+	<-quit
+	fmt.Println() // avoids "^C" being printed on the same line as the log date
+	log.Println("waiting for in-progress requests to finish...")
+	if err := srv.Shutdown(context.Background()); err != nil {
+		// either a context or listener error, and it cannot be the former as
+		// we're using the background ctx
+		log.Printf("failed to close listener: %v", err)
+	}
+	wg.Wait()
 }
