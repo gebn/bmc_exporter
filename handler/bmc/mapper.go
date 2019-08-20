@@ -175,15 +175,19 @@ func (m *Mapper) gc() {
 func (m *Mapper) Close(ctx context.Context) {
 	m.ticker.Stop() // will also cause GC goroutine to terminate
 
+	wg := sync.WaitGroup{}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	// TODO look into doing this in parallel if shut down times shoot up -
-	// getting a SIGKILL because we took too long to shut down cleanly would
-	// defeat the purpose of all this
+	wg.Add(len(m.targets))
 	for _, target := range m.targets {
-		collectorCtx, cancel := context.WithTimeout(ctx, time.Second)
-		target.collector.Close(collectorCtx)
-		cancel()
+		go func() {
+			defer wg.Done()
+			// we expect this time timeout for BMCs whose sessions have expired
+			collectorCtx, cancel := context.WithTimeout(ctx, time.Second*2)
+			target.collector.Close(collectorCtx)
+			cancel()
+		}()
 	}
+	wg.Wait()
 }
