@@ -64,12 +64,11 @@ var (
 
 	bmcInfo = prometheus.NewDesc(
 		"bmc_info",
-		"Provides the BMC's GUID, manufacturer, firmware, and the version of IPMI used to scrape it. Constant 1.",
+		"Provides the BMC's GUID, firmware, and the version of IPMI used to scrape it. Constant 1.",
 		[]string{
-			"guid",         // Get System GUID
-			"manufacturer", // Get Device ID
-			"firmware",     // Get Device ID
-			"ipmi",         // version used for connection
+			"guid",     // Get System GUID
+			"firmware", // Get Device ID
+			"ipmi",     // version used for connection
 		},
 		nil,
 	)
@@ -310,7 +309,6 @@ func (c *Collector) bmcInfo(ctx context.Context, ch chan<- prometheus.Metric) er
 		prometheus.GaugeValue,
 		1,
 		string(guidBuf[:]),
-		c.commands.getDeviceID.Rsp.Manufacturer.Organisation(),
 		bmc.FirmwareVersion(&c.commands.getDeviceID.Rsp),
 		c.session.Version(),
 	)
