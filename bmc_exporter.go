@@ -88,7 +88,7 @@ func main() {
 		log.Fatal(err)
 	}
 	mapper := bmc.NewMapper(provider, *scrapeTimeout)
-	defer mapper.Close()
+	defer mapper.Close(context.Background())
 	// we must not exit with os.Exit (e.g. log.Fatal) from now on, otherwise the
 	// mapper, and hence BMC connections, will not be closed
 

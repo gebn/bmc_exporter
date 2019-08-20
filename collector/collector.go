@@ -150,9 +150,9 @@ type Collector struct {
 func (c *Collector) Close(ctx context.Context) error {
 	c.mux.Lock()
 	defer c.mux.Unlock()
-	if err := c.session.Close(ctx); err != nil {
-		return err
-	}
+
+	// always close the underlying conn, even if this fails
+	c.session.Close(ctx)
 	return c.closer.Close()
 }
 

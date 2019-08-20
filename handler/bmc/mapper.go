@@ -172,6 +172,18 @@ func (m *Mapper) gc() {
 	gcTargetsCleared.Observe(float64(cleared))
 }
 
-func (m *Mapper) Close() {
+func (m *Mapper) Close(ctx context.Context) {
 	m.ticker.Stop() // will also cause GC goroutine to terminate
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// TODO look into doing this in parallel if shut down times shoot up -
+	// getting a SIGKILL because we took too long to shut down cleanly would
+	// defeat the purpose of all this
+	for _, target := range m.targets {
+		collectorCtx, cancel := context.WithTimeout(ctx, time.Second)
+		target.collector.Close(collectorCtx)
+		cancel()
+	}
 }
