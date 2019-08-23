@@ -34,8 +34,11 @@ go_repository(
     importpath = "github.com/gebn/bmc",
 )
 # TODO Bazel doesn't like when this is moved into the deps() function - workaround?
+
 load("@com_github_gebn_bmc//:deps.bzl", bmc_deps = "deps")
-bmc_deps()
+
+bmc_deps(go_repository)
 
 load(":deps.bzl", "deps")
-deps()
+
+deps(go_repository)

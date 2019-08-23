@@ -1,10 +1,8 @@
-load("@bazel_gazelle//:deps.bzl", "go_repository")
-
 def _maybe(repo_rule, name, **kwargs):
     if name not in native.existing_rules():
         repo_rule(name = name, **kwargs)
 
-def _kingpin():
+def _kingpin(go_repository):
     _maybe(
         go_repository,
         name = "com_github_alecthomas_kingpin",
@@ -26,8 +24,8 @@ def _kingpin():
         importpath = "github.com/alecthomas/template",
     )
 
-def deps():
-    _kingpin()
+def deps(go_repository):
+    _kingpin(go_repository)
 
     _maybe(
         go_repository,
