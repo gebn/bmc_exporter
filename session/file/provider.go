@@ -16,7 +16,10 @@ import (
 	"github.com/go-yaml/yaml"
 )
 
-type credentials struct {
+// Credentials represents the username and password for a single target in a
+// config file. N.B. this is not a generic credentials type; it is specific to
+// this particular provider's config format.
+type Credentials struct {
 	Username string `yaml:"username"`
 	Password string `yaml:"password"`
 }
@@ -44,7 +47,7 @@ func New(path string) (*Provider, error) {
 
 	d := yaml.NewDecoder(f)
 	d.SetStrict(true)
-	v := map[string]credentials{}
+	v := map[string]Credentials{}
 	if err := d.Decode(&v); err != nil {
 		return nil, err
 	}
