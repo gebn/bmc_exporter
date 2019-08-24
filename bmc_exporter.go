@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/gebn/bmc_exporter/handler/bmc"
@@ -124,7 +125,7 @@ func main() {
 	}()
 
 	quit := make(chan os.Signal)
-	signal.Notify(quit, os.Interrupt)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 	<-quit
 	fmt.Println() // avoids "^C" being printed on the same line as the log date
 	log.Println("waiting for in-progress requests to finish...")
