@@ -40,9 +40,3 @@ def deps(go_repository):
         tag = "v2.2.2",
         importpath = "github.com/go-yaml/yaml",
     )
-
-    #go_repository(
-    #    name = "com_github_fsnotify_fsnotify",
-    #    tag = "v1.4.7",
-    #    importpath = "github.com/fsnotify/fsnotify",
-    #)
