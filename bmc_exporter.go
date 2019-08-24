@@ -88,9 +88,7 @@ func main() {
 		log.Fatal(err)
 	}
 	mapper := bmc.NewMapper(provider, *scrapeTimeout)
-	defer mapper.Close(context.Background())
-	// we must not exit with os.Exit (e.g. log.Fatal) from now on, otherwise the
-	// mapper, and hence BMC connections, will not be closed
+	// must not return early from now on
 
 	http.Handle("/", promhttp.InstrumentHandlerDuration(
 		requestDuration.MustCurryWith(prometheus.Labels{
@@ -130,10 +128,15 @@ func main() {
 	<-quit
 	fmt.Println() // avoids "^C" being printed on the same line as the log date
 	log.Println("waiting for in-progress requests to finish...")
-	if err := srv.Shutdown(context.Background()); err != nil {
+
+	closeCtx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+
+	if err := srv.Shutdown(closeCtx); err != nil {
 		// either a context or listener error, and it cannot be the former as
 		// we're using the background ctx
 		log.Printf("failed to close listener: %v", err)
 	}
 	wg.Wait()
+	mapper.Close(closeCtx)
 }
