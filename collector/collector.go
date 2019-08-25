@@ -104,6 +104,10 @@ var (
 	)
 )
 
+// Collector implements the custom collector to scrape metrics from a single BMC
+// on demand. Note this struct is only called by a single Target by a single
+// goroutine, so contrary to the Prometheus docs, is not safe for concurrent
+// use.
 type Collector struct {
 
 	// lastCollection holds the time of the previous scrape as nanoseconds since
