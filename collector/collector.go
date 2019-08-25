@@ -294,8 +294,8 @@ func (c *Collector) newSession(ctx context.Context) error {
 	c.commands.getChannelAuthenticationCapabilities.Req.MaxPrivilegeLevel = ipmi.PrivilegeLevelUser
 	c.commands.getPowerReading.Req.Mode = dcmi.SystemPowerStatisticsModeNormal
 
-	if err := bmc.ValidateResponse(c.session.SendCommand(ctx,
-		&c.commands.getPowerReading)); err != nil {
+	if err := bmc.ValidateResponse(
+		c.session.SendCommand(ctx, &c.commands.getPowerReading)); err != nil {
 		// let's not try that again
 		c.supportsGetPowerReading = false
 	}
@@ -320,10 +320,12 @@ func (c *Collector) collect(ctx context.Context, ch chan<- prometheus.Metric) []
 }
 
 func (c *Collector) bmcInfo(ctx context.Context, ch chan<- prometheus.Metric) error {
-	if err := bmc.ValidateResponse(c.session.SendCommand(ctx, &c.commands.getSystemGUID)); err != nil {
+	if err := bmc.ValidateResponse(
+		c.session.SendCommand(ctx, &c.commands.getSystemGUID)); err != nil {
 		return err
 	}
-	if err := bmc.ValidateResponse(c.session.SendCommand(ctx, &c.commands.getDeviceID)); err != nil {
+	if err := bmc.ValidateResponse(
+		c.session.SendCommand(ctx, &c.commands.getDeviceID)); err != nil {
 		return err
 	}
 	guidBuf := [36]byte{}
