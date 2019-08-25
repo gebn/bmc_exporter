@@ -29,7 +29,7 @@ The exporter's own metrics, including total IPMI commands sent and various laten
 This can be scraped more frequently than a given BMC if required.
 To scrape a BMC, request `/bmc?target=<IP[:port]>`.
 Note that the target parameter is passed verbatim to the session provider.
-Although the port defaults to 623, to avoid confusion, is is recommended to be explicit and include the port after the IP address wherever it appears.
+Although the port defaults to 623, to avoid confusion, it is recommended to be explicit and include the port after the IP address wherever it appears.
 
 ### Session Providers
 
