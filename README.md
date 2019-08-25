@@ -66,6 +66,18 @@ The IPMI specification recommends a 60s (+/-3s) timeout on sessions, so provided
 If deployed in a pair as recommended in the [Deployment](#Deployment) section, this will result in a scrape every 60s to each exporter assuming perfect round-robin.
 If `bmc_collector_session_expiries_total` increases at any kind of constant rate, it is an indication that the scrape interval is too large.
 
+### Scrape Timeout
+
+Scraping a healthy, available BMC takes a fraction of a second, however this will never be the case for all targets with any sizeable fleet.
+The exporter will allow a whole second for a response before retrying a command in an exponential back-off.
+It has an internal time to allow for each scrape, defaulting to 8s (to allow wiggle room before the default Prometheus scrape timeout of 10s) and overridable via `--scrape.timeout`.
+The idea behind this is that *some* data is better than no data.
+If a BMC is excruciatingly slow, it is better to return a subset of metrics than nothing whatsoever.
+This can only be done if the exporter knows to give up on the BMC before Prometheus gives up on the exporter.
+The exporter always exposes a `bmc_up` metric with whether it finished the scrape successfully.
+All targets in Prometheus that hit the exporter should be permanently `UP`, regardless of the underlying machine.
+If this is not the case, it suggests something wrong with the exporter or Prometheus configuration rather the BMC.
+
 ## Metrics
 
 Below is a typical response to `/bmc` for a given target.
