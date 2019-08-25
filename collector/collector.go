@@ -136,11 +136,12 @@ type Collector struct {
 	Timeout time.Duration
 
 	// commands contains all the IPMI structures for commands we will send to
-	// the BMC.
+	// the BMC. This reduces the number of allocations each collection.
 	commands commands
 
 	// session is the session we've established with the target addr, if any.
-	// This may have expired since the last collection.
+	// This will be nil if no collection has been attempted or if initialisation
+	// failed, or it may have expired since the last collection.
 	session bmc.Session
 
 	// closer is a closer for the underlying transport that the current session
@@ -155,9 +156,11 @@ type Collector struct {
 	supportsGetPowerReading bool
 }
 
-// Close cleanly terminates the underlying BMC connection that powers the
-// collector. The context constrains the time allowed to execute the Close
-// Session command. This is used to cleanly shut down the exporter.
+// Close cleanly terminates the underlying BMC connection and socket that powers
+// the collector. The collector is left in a usable state - calling Collect()
+// will re-establish a connection. The context constrains the time allowed to
+// execute the Close Session command. This is used when the connection is
+// thought to have expired, and when shutting down the entire exporter.
 func (c *Collector) Close(ctx context.Context) error {
 	if c.session == nil {
 		// no collection performed
@@ -183,7 +186,6 @@ func (c *Collector) LastCollection() int64 {
 
 func (c *Collector) Describe(d chan<- *prometheus.Desc) {
 	// descriptors are all pre-allocated; we simply send them
-	// N.B. this method must be concurrent
 	d <- lastScrape
 	d <- scrapeDuration
 	d <- up
