@@ -68,7 +68,7 @@ If `bmc_collector_session_expiries_total` increases at any kind of constant rate
 
 ## Metrics
 
-Below is a typical response to `/bmc`.
+Below is a typical response to `/bmc` for a given target.
 
     # HELP bmc_info Provides the BMC's GUID, firmware, and the version of IPMI used to scrape it. Constant 1.
     # TYPE bmc_info gauge
@@ -144,5 +144,5 @@ On `SIGINT` or `SIGTERM`, the exporter will shut down its web server, then wait 
 
 ## Limitations
 
- - Sensor data besides power use via DCMI is currently unavailable. Issue #12 tracks the progress; unfortunately this requires delving into SDRs, which has so far been avoidable. It will likely take the form of `chassis_(intake|exhaust)_temperature_celsius` and `cpu_temperature_celsius{socket="#"}` metrics.
+ - Sensor data besides power use via DCMI is currently unavailable. Issue [#12](https://github.com/gebn/bmc_exporter/issues/12) tracks the progress; unfortunately this requires delving into SDRs, which has so far been avoidable. It will likely take the form of `chassis_(intake|exhaust)_temperature_celsius` and `cpu_temperature_celsius{socket="#"}` metrics.
  - IPMI v1.5, the first to feature IPMI-over-LAN support, is currently unimplemented in the underlying library. Given IPMI v2.0 was first published in 2004, this is hopefully not relevant to most, however for the sake of legacy devices and completeness, it will be added after non-power sensor data is retrievable. The exporter itself is already version-agnostic.
