@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"io"
-	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gebn/bmc_exporter/session"
@@ -106,6 +106,23 @@ var (
 
 type Collector struct {
 
+	// lastCollection holds the time of the previous scrape as nanoseconds since
+	// the Unix epoch.
+	//
+	// GC, which is triggered on a timer outside the usual dispatch mechanism,
+	// uses this value to decide which targets to clear up. Therefore it must be
+	// retrievable at any time, including while a scrape is in progress. It
+	// would be a time.Time, however an int allows us to use atomic operations
+	// rather than a full-blown mutex, and avoids potentially thousands of
+	// allocations and less efficient comparisons inside mapper while holding
+	// the write lock. Although its value will always be >=0, it is signed to
+	// match time.Time.UnixNano()'s return type.
+	//
+	// This is the first field to ensure it is 64-bit aligned, for the sake of
+	// ARM, x86-32, and 32-bit MIPS:
+	// https://golang.org/pkg/sync/atomic/#pkg-note-BUG
+	lastCollection int64
+
 	// Target is the addr of the target this collector is responsible for.
 	Target string
 
@@ -131,13 +148,6 @@ type Collector struct {
 	// session.
 	closer io.Closer
 
-	// mux guards the Collect() method, ensuring the target BMC is only scraped
-	// once at a time.
-	mux sync.Mutex
-
-	// lastCollection holds the time of the previous scrape.
-	lastCollection time.Time
-
 	// supportsGetPowerReading indicates whether the BMC supports the DCMI Get
 	// Power Reading command. This is discovered after session establishment,
 	// and controls whether we bother trying to retrieve the power usage for the
@@ -146,23 +156,29 @@ type Collector struct {
 }
 
 // Close cleanly terminates the underlying BMC connection that powers the
-// collector. This is used to cleanly shut down the exporter.
+// collector. The context constrains the time allowed to execute the Close
+// Session command. This is used to cleanly shut down the exporter.
 func (c *Collector) Close(ctx context.Context) error {
-	c.mux.Lock()
-	defer c.mux.Unlock()
+	if c.session == nil {
+		// no collection performed
+		return nil
+	}
 
 	// always close the underlying conn, even if this fails
 	c.session.Close(ctx)
 	return c.closer.Close()
 }
 
-// LastCollection returns when this collector was last invoked. It is used by
-// mapper GC to determine which BMCs are no longer being scraped, so their
-// http.Handlers can be removed.
-func (c *Collector) LastCollection() time.Time {
-	c.mux.Lock()
-	defer c.mux.Unlock()
-	return c.lastCollection
+// LastCollection returns when this collector was last invoked as nanoseconds
+// since the Unix epoch. If required, it can be converted to a time.Time using
+// time.Unix(0, <value>). It is used by mapper GC to determine which BMCs are no
+// longer being scraped, so their http.Handlers can be removed.
+func (c *Collector) LastCollection() int64 {
+
+	// this doesn't use the normal event dispatch mechanism, as we need to
+	// obtain this value quickly, as all incoming scrapes are blocked - we don't
+	// want to be waiting for current scrapes to finish
+	return atomic.LoadInt64(&c.lastCollection)
 }
 
 func (c *Collector) Describe(d chan<- *prometheus.Desc) {
@@ -180,22 +196,28 @@ func (c *Collector) Describe(d chan<- *prometheus.Desc) {
 	d <- chassisPowerDraw
 }
 
+// Collect sends a number of commands to the BMC to gather metrics about its
+// current state.
+//
+// Contrary to the Prometheus docs, this method is *not* safe for calling
+// concurrently: a given BMC is always collected by the same goroutine, so
+// concurrent collections are not possible. If it's possible for Prometheus to
+// do a spurious collection, then we're in trouble, so we don't implement the
+// locking to add complexity and give a false sense of security, when in reality
+// there would be deadlocks.
 func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	start := time.Now()
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()
 
-	c.mux.Lock()
-	defer c.mux.Unlock() // critical section could be shorter, but this is safer
-
-	if !c.lastCollection.IsZero() {
+	lastCollection := atomic.SwapInt64(&c.lastCollection, start.UnixNano())
+	if lastCollection != 0 {
 		ch <- prometheus.MustNewConstMetric(
 			lastScrape,
 			prometheus.GaugeValue,
-			float64(c.lastCollection.UnixNano())/float64(time.Second),
+			float64(lastCollection)/float64(time.Second),
 		)
 	}
-	c.lastCollection = start
 
 	success := false
 	// ensure we have a working session before continuing

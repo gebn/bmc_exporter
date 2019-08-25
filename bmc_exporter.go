@@ -130,14 +130,11 @@ func main() {
 	fmt.Println() // avoids "^C" being printed on the same line as the log date
 	log.Println("waiting for in-progress requests to finish...")
 
-	closeCtx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
-
-	if err := srv.Shutdown(closeCtx); err != nil {
+	if err := srv.Shutdown(context.Background()); err != nil {
 		// either a context or listener error, and it cannot be the former as
 		// we're using the background ctx
 		log.Printf("failed to close listener: %v", err)
 	}
 	wg.Wait()
-	mapper.Close(closeCtx)
+	mapper.Close()
 }

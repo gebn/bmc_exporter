@@ -1,17 +1,16 @@
 package bmc
 
 import (
-	"context"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/gebn/bmc_exporter/collector"
 	"github.com/gebn/bmc_exporter/session"
+	"github.com/gebn/bmc_exporter/target"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 var (
@@ -60,14 +59,6 @@ var (
 	})
 )
 
-// target contains the data we need to carry out the mapper's functionality.
-// This would normally be just a http.Handler, however we need access to the
-// underlying collector in order for GC to query when it was last invoked.
-type target struct {
-	handler   http.Handler
-	collector *collector.Collector
-}
-
 // Mapper manages the http.Handler we create for each BMC being scraped. Given a
 // target addr, it returns a promhttp-created handler that, when invoked, will
 // retrieve and yield metrics for that BMC.
@@ -75,23 +66,34 @@ type Mapper struct {
 	Provider session.Provider
 	Timeout  time.Duration
 
-	targets map[string]target
+	targets map[string]*target.Target
 	mu      sync.RWMutex
-	ticker  *time.Ticker
+	done    chan struct{}  // closed when mapper should shut down
+	wg      sync.WaitGroup // becomes done when ticker has closed
 }
 
 // NewMapper creates a Mapper struct ready for mapping targets to handlers.
 func NewMapper(provider session.Provider, timeout time.Duration) *Mapper {
-	ticker := time.NewTicker(gcInterval)
 	m := &Mapper{
 		Provider: provider,
 		Timeout:  timeout,
-		targets:  map[string]target{},
-		ticker:   ticker,
+		targets:  map[string]*target.Target{},
+		done:     make(chan struct{}),
 	}
+	m.wg.Add(1)
 	go func() {
-		for range ticker.C {
-			m.gc()
+		defer m.wg.Done()
+		ticker := time.NewTicker(gcInterval)
+		for {
+			select {
+			case <-ticker.C:
+				m.gc()
+			case <-m.done:
+				// note, irritatingly, this does *not* close the C channel,
+				// which is the only reason why the done channel is needed
+				ticker.Stop()
+				return
+			}
 		}
 	}()
 	return m
@@ -110,7 +112,7 @@ func (m *Mapper) Handler(addr string) http.Handler {
 	m.mu.RUnlock()
 	if ok {
 		hits.Inc()
-		return t.handler
+		return t
 	}
 
 	// unlucky, first scrape, need to take out a write lock and create the
@@ -120,25 +122,19 @@ func (m *Mapper) Handler(addr string) http.Handler {
 
 	// in the time taken to acquire the lock, another goroutine may have done
 	// this, so check once more
-	if target, ok := m.targets[addr]; ok {
-		return target.handler
+	if t, ok = m.targets[addr]; ok {
+		return t
 	}
 
 	// nope, still don't have it, create. This could panic, but if it does, it
 	// will fail for every request, so we'll realise pretty quickly.
-	col := &collector.Collector{
+	bmc := target.New(&collector.Collector{
 		Target:   addr,
 		Provider: m.Provider,
 		Timeout:  m.Timeout,
-	}
-	reg := prometheus.NewRegistry()
-	reg.MustRegister(col)
-	handler := promhttp.HandlerFor(reg, promhttp.HandlerOpts{})
-	m.targets[addr] = target{
-		handler:   handler,
-		collector: col,
-	}
-	return handler
+	})
+	m.targets[addr] = bmc
+	return bmc
 }
 
 // gc deletes inactive handlers. This process is necessary due to our caching of
@@ -150,44 +146,63 @@ func (m *Mapper) gc() {
 	timer := prometheus.NewTimer(gcDuration)
 	defer timer.ObserveDuration()
 
-	// create an expired context so we don't wait for session close - it will be
-	// long dead; we just want to close the UDP socket
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
+	threshold := time.Now().Add(-inactivityThreshold).UnixNano()
+	expired := m.closeTargets(func(t *target.Target) bool {
+		return t.LastCollection() < threshold
+	})
+	gcTargetsCleared.Observe(float64(expired))
+}
 
-	threshold := time.Now().Add(-inactivityThreshold)
-	cleared := 0
+func (m *Mapper) Close() {
+	// if a GC is in progress, we may have GC closing some targets while we
+	// close the rest - this is fine as they will never try to close the same
+	// one due to the mutex
+	m.done <- struct{}{}
+	m.closeTargets(func(_ *target.Target) bool {
+		return true
+	})
+
+	// wait for GC goroutine to finish; it very likely has as there will
+	// normally be more active targets than expired ones
+	m.wg.Wait()
+}
+
+// closeTargets cleanly shuts down targets matching a predicate. This is used
+// both during GC and when shutting down the mapper completely; the former
+// simply involves a subset rather than all targets. This method is safe to call
+// concurrently, even with predicates that select an intersecting set of
+// targets.
+func (m *Mapper) closeTargets(shouldClose func(t *target.Target) bool) int {
+	// put all eligible targets in a slice rather than clear them up immediately
+	// to ensure we don't switch to another goroutine - in the case of GC, we
+	// want to run as quickly as possible
+	toClose := []*target.Target{}
 
 	m.mu.Lock()
 	for addr, target := range m.targets {
-		last := target.collector.LastCollection()
-		if !last.IsZero() && last.Before(threshold) {
-			target.collector.Close(ctx)
+		if shouldClose(target) {
+			toClose = append(toClose, target)
 			delete(m.targets, addr)
-			cleared++
 		}
 	}
 	m.mu.Unlock()
 
-	gcTargetsCleared.Observe(float64(cleared))
-}
-
-func (m *Mapper) Close(ctx context.Context) {
-	m.ticker.Stop() // will also cause GC goroutine to terminate
+	// because we removed targets from the map, no new scrapes will come in for
+	// them, but there may still be some in progress; there is now a very small
+	// period where we could potentially create a new target and start scraping
+	// afresh before these finish, however the chances are miniscule
 
 	wg := sync.WaitGroup{}
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	wg.Add(len(m.targets))
-	for _, target := range m.targets {
+	wg.Add(len(toClose))
+	for _, target := range toClose {
 		go func() {
 			defer wg.Done()
-			// we expect this time timeout for BMCs whose sessions have expired
-			collectorCtx, cancel := context.WithTimeout(ctx, time.Second*2)
-			target.collector.Close(collectorCtx)
-			cancel()
+			// this uses the event loop, so will wait for any in-progress scrape
+			// to finish
+			target.Close()
 		}()
 	}
 	wg.Wait()
+
+	return len(toClose)
 }
