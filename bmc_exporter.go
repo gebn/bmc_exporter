@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
+	"runtime"
 	"sync"
 	"syscall"
 	"time"
@@ -74,12 +76,12 @@ func init() {
 	for _, path := range []string{"/", "/bmc", "/metrics"} {
 		requestDuration.WithLabelValues(path)
 	}
+	buildInfo.WithLabelValues(stamp.Version, stamp.Commit).Set(1)
+	buildTime.Set(float64(stamp.Time().UnixNano()) / float64(time.Second))
+	runtime.SetMutexProfileFraction(5)
 }
 
 func main() {
-	buildInfo.WithLabelValues(stamp.Version, stamp.Commit).Set(1)
-	buildTime.Set(float64(stamp.Time().UnixNano()) / float64(time.Second))
-
 	kingpin.CommandLine.Help = help
 	kingpin.Version(stamp.Summary())
 	kingpin.Parse()
