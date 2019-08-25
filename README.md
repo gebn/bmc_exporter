@@ -143,14 +143,14 @@ It is strongly recommended to locate the exporter in the same region as the BMCs
 Attempting to scrape across the Atlantic or further will slow down scrapes significantly, and the effects of any packet loss will be magnified.
 
 The exporter has been designed around only having one open socket, session, and sending only one command at once to a given BMC.
-This is important, as the specification only requires support for 4 concurrent sessions between the LAN and console channels, and a packet buffer of depth 2.
+This is important, as the specification only requires support for two concurrent sessions between the LAN and console channels, and a network buffer with capacity for two packets.
 It is recommended to have a pair of exporters in each region, behind the same DNS record or K8s service, and point Prometheus at that alias.
-This will result in 2 sessions being established with the BMC, which allows room for use by other system management software, while having N+1 resiliency.
+This will result in two sessions being established with the BMC, which allows room for use by other system management software, while having N+1 resiliency.
 It is fine if your targets are scraped by multiple [Prometheis](https://prometheus.io/docs/introduction/faq/#what-is-the-plural-of-prometheus).
-A single exporter will serialise scrapes, and as there are only 2, the BMC's packet buffer cannot be overwhelmed (other SMS notwithstanding).
+A single exporter will serialise scrapes, and as there are only two, the BMC's packet buffer cannot be overwhelmed (other SMS notwithstanding).
 
 If you have more BMCs than you are willing to scale vertically, it is recommended to shard them across multiple multiple pairs, e.g. half go to one pair, half to another.
-This maintains the max 2 sessions per BMC property, and means a single exporter dying results in loss of resiliency for a smaller subset of BMCs.
+This maintains the max two sessions per BMC property, and means a single exporter dying results in loss of resiliency for a smaller subset of BMCs.
 
 On `SIGINT` or `SIGTERM`, the exporter will shut down its web server, then wait for all in-progress scrapes to finish before cleanly closing all BMC connections and sockets.
 
