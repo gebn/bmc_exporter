@@ -179,9 +179,9 @@ func (m *Mapper) closeTargets(shouldClose func(t *target.Target) bool) int {
 	toClose := []*target.Target{}
 
 	m.mu.Lock()
-	for addr, target := range m.targets {
-		if shouldClose(target) {
-			toClose = append(toClose, target)
+	for addr, t := range m.targets {
+		if shouldClose(t) {
+			toClose = append(toClose, t)
 			delete(m.targets, addr)
 		}
 	}
@@ -194,13 +194,13 @@ func (m *Mapper) closeTargets(shouldClose func(t *target.Target) bool) int {
 
 	wg := sync.WaitGroup{}
 	wg.Add(len(toClose))
-	for _, target := range toClose {
-		go func() {
+	for _, t := range toClose {
+		go func(t *target.Target) {
 			defer wg.Done()
 			// this uses the event loop, so will wait for any in-progress scrape
 			// to finish
-			target.Close()
-		}()
+			t.Close()
+		}(t)
 	}
 	wg.Wait()
 
