@@ -41,14 +41,6 @@ var (
 	})
 
 	// "meta" scrape metrics
-
-	lastScrape = prometheus.NewDesc(
-		"bmc_last_scrape",
-		"When the BMC was last scraped by this exporter, expressed as "+
-			"seconds since the Unix epoch. This metric will not be present "+
-			"in the first scrape of a given BMC, including after GC.",
-		nil, nil,
-	)
 	scrapeDuration = prometheus.NewDesc(
 		"bmc_scrape_duration_seconds",
 		"The time taken to collect all metrics, measured by the exporter.",
@@ -190,7 +182,6 @@ func (c *Collector) LastCollection() int64 {
 
 func (c *Collector) Describe(d chan<- *prometheus.Desc) {
 	// descriptors are all pre-allocated; we simply send them
-	d <- lastScrape
 	d <- scrapeDuration
 	d <- up
 	d <- bmcInfo
@@ -216,14 +207,8 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()
 
-	lastCollection := atomic.SwapInt64(&c.lastCollection, start.UnixNano())
-	if lastCollection != 0 {
-		ch <- prometheus.MustNewConstMetric(
-			lastScrape,
-			prometheus.GaugeValue,
-			float64(lastCollection)/float64(time.Second),
-		)
-	}
+	// this timestamp is used by GC to determine when this target can be deleted
+	atomic.StoreInt64(&c.lastCollection, start.UnixNano())
 
 	success := false
 	// ensure we have a working session before continuing
