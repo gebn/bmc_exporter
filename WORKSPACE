@@ -30,7 +30,7 @@ gazelle_dependencies()
 
 go_repository(
     name = "com_github_gebn_bmc",
-    commit = "1d05aeb549996c48c23d97ad81738ccb6d639891",
+    commit = "e3b0936def6aac47330fc834ae4ecb1f6316adfa",
     importpath = "github.com/gebn/bmc",
 )
 

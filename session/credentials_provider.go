@@ -6,6 +6,7 @@ import (
 	"io"
 
 	"github.com/gebn/bmc"
+	"github.com/gebn/bmc/pkg/ipmi"
 )
 
 var (
@@ -66,7 +67,11 @@ func (c credentialsProvider) Session(ctx context.Context, addr string) (bmc.Sess
 	if err != nil {
 		return nil, nil, err
 	}
-	sess, err := machine.NewSession(ctx, creds.Username, creds.Password)
+	sess, err := machine.NewSession(ctx, &bmc.SessionOpts{
+		Username:          creds.Username,
+		Password:          creds.Password,
+		MaxPrivilegeLevel: ipmi.PrivilegeLevelUser,
+	})
 	if err != nil {
 		machine.Close()
 		return nil, nil, err
