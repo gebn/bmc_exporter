@@ -63,8 +63,8 @@ var (
 		String()
 	scrapeTimeout = kingpin.Flag("scrape.timeout", "BMC scrapes will return "+
 		"early after this long. This value should be slightly shorter than "+
-		"the Prometheus scrape_timeout.").
-		Default("8s"). // ~1.5s delay + network RTT
+		"the Prometheus scrape_timeout."). // see #13 for why
+		Default("6s").                     // ~3s delay + network RTT
 		Duration()
 	staticSecrets = kingpin.Flag("session.static.secrets", "Used by the "+
 		"static session provider to look up BMC credentials.").
