@@ -136,8 +136,9 @@ type Collector struct {
 	commands commands
 
 	// session is the session we've established with the target addr, if any.
-	// This will be nil if no collection has been attempted or if initialisation
-	// failed, or it may have expired since the last collection.
+	// This will be nil if no collection has been attempted, or if
+	// initialisation failed, or the collector has been closed. It may also have
+	// expired since the last collection.
 	session bmc.Session
 
 	// closer is a closer for the underlying transport that the current session
@@ -157,15 +158,20 @@ type Collector struct {
 // will re-establish a connection. The context constrains the time allowed to
 // execute the Close Session command. This is used when the connection is
 // thought to have expired, and when shutting down the entire exporter.
-func (c *Collector) Close(ctx context.Context) error {
+func (c *Collector) Close(ctx context.Context) {
+	// the session can be nil if the BMC is yet to be scraped, or failed to be
+	// scraped
 	if c.session == nil {
-		// no collection performed
-		return nil
+		return
 	}
 
-	// always close the underlying conn, even if this fails
 	c.session.Close(ctx)
-	return c.closer.Close()
+	// if session is non-nil, c.closer will always be non-nil; always close,
+	// even if session close fails
+	c.closer.Close()
+
+	c.session = nil
+	c.closer = nil
 }
 
 // LastCollection returns when this collector was last invoked as nanoseconds
@@ -235,6 +241,8 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 }
 
 func (c *Collector) prescrape(ctx context.Context) error {
+	// use an existing session if it's still responsive, otherwise tear down
+	// everything and start again as if this were the first collection
 	if c.session != nil {
 		probeCtx, cancel := context.WithTimeout(ctx, time.Second*2)
 		defer cancel()
@@ -252,7 +260,7 @@ func (c *Collector) prescrape(ctx context.Context) error {
 		// rather than only the session-based connection, just in case. Allow
 		// another second as probeCtx will likely have expired
 		cancelCtx, cancel := context.WithTimeout(ctx, time.Second)
-		_ = c.Close(cancelCtx)
+		c.Close(cancelCtx)
 		cancel()
 	}
 
@@ -268,12 +276,14 @@ func (c *Collector) prescrape(ctx context.Context) error {
 // error if c.session != nil.
 func (c *Collector) newSession(ctx context.Context) error {
 	providerRequests.Inc()
-	sess, closer, err := c.Provider.Session(ctx, c.Target)
+	session, closer, err := c.Provider.Session(ctx, c.Target)
+	// setting these here in the error case avoids repeatedly trying to close,
+	// preventing a negative number of open sessions/connections
+	c.session = session
+	c.closer = closer
 	if err != nil {
 		return err
 	}
-	c.session = sess
-	c.closer = closer
 	c.supportsGetPowerReading = true
 
 	// set request struct fields based on capabilities; as these structs are
