@@ -37,7 +37,7 @@ var (
 		Namespace: namespace,
 		Subsystem: subsystem,
 		Name:      "session_expiries_total",
-		Help:      "The number of sessions that we have decided have stopped working. On the next scrape, these would be re-established.",
+		Help:      "The number of sessions that have stopped working.",
 	})
 
 	// "meta" scrape metrics
