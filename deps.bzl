@@ -13,7 +13,7 @@ def _kingpin(go_repository):
     _maybe(
         go_repository,
         name = "com_github_alecthomas_units",
-        commit = "c3de453c63f4bdb4dadffab9805ec00426c505f7",
+        commit = "680d30ca31172657fa50e996eb82d790d1d8b96e",
         importpath = "github.com/alecthomas/units",
     )
 
