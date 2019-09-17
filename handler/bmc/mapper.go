@@ -48,14 +48,14 @@ var (
 		// can also get number of GCs from _count, and total number of removed
 		// targets from _sum; can obtain size of map with queries - hits -
 		// targets cleared sum
-		Buckets: prometheus.ExponentialBuckets(1, 1.5, 10), // 38.44
+		Buckets: prometheus.ExponentialBuckets(1, 2, 10), // 512
 	})
 	gcDuration = promauto.NewHistogram(prometheus.HistogramOpts{
 		Namespace: namespace,
 		Subsystem: subsystem,
 		Name:      "gc_duration_seconds",
 		Help:      "The amount of time taken by GC. This is stop-the-world.",
-		Buckets:   prometheus.ExponentialBuckets(0.0001, 1.5, 10), // 0.0038
+		Buckets:   prometheus.ExponentialBuckets(0.0002, 1.2, 10), // 0.0010
 	})
 )
 
