@@ -21,6 +21,8 @@ var (
 	namespace = "bmc"
 	subsystem = "collector"
 
+	ErrPowerMgmtInactive = errors.New("BMC indicated power measurement is inactive")
+
 	collectDuration = promauto.NewHistogram(prometheus.HistogramOpts{
 		Namespace: namespace,
 		Subsystem: subsystem,
@@ -216,13 +218,9 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	// this timestamp is used by GC to determine when this target can be deleted
 	atomic.StoreInt64(&c.lastCollection, start.UnixNano())
 
-	success := false
-	// ensure we have a working session before continuing
-	if err := c.prescrape(ctx); err == nil {
-		// collect bmc-specific metrics
-		if errs := c.collect(ctx, ch); len(errs) == 0 {
-			success = true
-		}
+	success := true
+	if err := c.collect(ctx, ch); err != nil {
+		success = false
 	}
 
 	ch <- prometheus.MustNewConstMetric(
@@ -240,91 +238,29 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	)
 }
 
-func (c *Collector) prescrape(ctx context.Context) error {
-	// use an existing session if it's still responsive, otherwise tear down
-	// everything and start again as if this were the first collection
-	if c.session != nil {
-		probeCtx, cancel := context.WithTimeout(ctx, time.Second*2)
-		defer cancel()
-
-		// we use Get Channel Authentication Capabilities as a liveness probe;
-		// this command is typically used for session keepalives
-		if err := bmc.ValidateResponse(c.session.SendCommand(probeCtx,
-			&c.commands.getChannelAuthenticationCapabilities)); err == nil {
-			// we hope this will be the most common case
-			return nil
-		}
-		sessionExpiriesTotal.Inc()
-
-		// failed, session or transport is bad. We ditch the entire socket
-		// rather than only the session-based connection, just in case. Allow
-		// another second as probeCtx will likely have expired
-		cancelCtx, cancel := context.WithTimeout(ctx, time.Second)
-		c.Close(cancelCtx)
-		cancel()
-	}
-
-	if err := c.newSession(ctx); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// newSession establishes a session with a BMC, and performs discovery to
-// relieve subsequent scrapes of doing this. This method will only return a nil
-// error if c.session != nil.
-func (c *Collector) newSession(ctx context.Context) error {
-	providerRequests.Inc()
-	session, closer, err := c.Provider.Session(ctx, c.Target)
-	// setting these here in the error case avoids repeatedly trying to close,
-	// preventing a negative number of open sessions/connections
-	c.session = session
-	c.closer = closer
-	if err != nil {
-		return err
-	}
-	c.supportsGetPowerReading = true
-
-	// set request struct fields based on capabilities; as these structs are
-	// specific to this collector, we only have to do this once, and can tailor
-	// it based on what we discover
-	c.commands.getChannelAuthenticationCapabilities.Req.Channel = ipmi.ChannelPresentInterface
-	c.commands.getChannelAuthenticationCapabilities.Req.MaxPrivilegeLevel = ipmi.PrivilegeLevelUser
-	c.commands.getPowerReading.Req.Mode = dcmi.SystemPowerStatisticsModeNormal
-
-	if err := bmc.ValidateResponse(
-		c.session.SendCommand(ctx, &c.commands.getPowerReading)); err != nil {
-		// let's not try that again
-		c.supportsGetPowerReading = false
-	}
-
-	return nil
-}
-
-func (c *Collector) collect(ctx context.Context, ch chan<- prometheus.Metric) []error {
-	errs := []error{}
+func (c *Collector) collect(ctx context.Context, ch chan<- prometheus.Metric) error {
+	// we don't continue on error, as the only reason for an error is ctx
+	// expiry, in which case there is no time to send any more commands so we
+	// return what we have
 	if err := c.bmcInfo(ctx, ch); err != nil {
-		errs = append(errs, err)
+		return err
 	}
 	if err := c.chassisStatus(ctx, ch); err != nil {
-		errs = append(errs, err)
+		return err
 	}
 	if c.supportsGetPowerReading {
 		if err := c.powerDraw(ctx, ch); err != nil {
-			errs = append(errs, err)
+			return err
 		}
 	}
-	return errs
+	return nil
 }
 
 func (c *Collector) bmcInfo(ctx context.Context, ch chan<- prometheus.Metric) error {
-	if err := bmc.ValidateResponse(
-		c.session.SendCommand(ctx, &c.commands.getSystemGUID)); err != nil {
+	if err := c.sendCommand(ctx, &c.commands.getSystemGUID); err != nil {
 		return err
 	}
-	if err := bmc.ValidateResponse(
-		c.session.SendCommand(ctx, &c.commands.getDeviceID)); err != nil {
+	if err := c.sendCommand(ctx, &c.commands.getDeviceID); err != nil {
 		return err
 	}
 	guidBuf := [36]byte{}
@@ -353,8 +289,7 @@ func encodeHex(dst []byte, guid [16]byte) {
 }
 
 func (c *Collector) chassisStatus(ctx context.Context, ch chan<- prometheus.Metric) error {
-	if err := bmc.ValidateResponse(c.session.SendCommand(
-		ctx, &c.commands.getChassisStatus)); err != nil {
+	if err := c.sendCommand(ctx, &c.commands.getChassisStatus); err != nil {
 		return err
 	}
 
@@ -390,13 +325,12 @@ func (c *Collector) chassisStatus(ctx context.Context, ch chan<- prometheus.Metr
 }
 
 func (c *Collector) powerDraw(ctx context.Context, ch chan<- prometheus.Metric) error {
-	if err := bmc.ValidateResponse(c.session.SendCommand(ctx,
-		&c.commands.getPowerReading)); err != nil {
+	if err := c.sendCommand(ctx, &c.commands.getPowerReading); err != nil {
 		return err
 	}
 	rsp := &c.commands.getPowerReading.Rsp
 	if !rsp.Active {
-		return errors.New("BMC indicated power measurement is inactive")
+		return ErrPowerMgmtInactive
 	}
 	ch <- prometheus.MustNewConstMetric(
 		chassisPowerDraw,
@@ -411,4 +345,82 @@ func boolToFloat64(b bool) float64 {
 		return 1
 	}
 	return 0
+}
+
+// sendCommand wraps bmc.Session's SendCommand() method. It ensures a session
+// exists, tries the command, and re-establishes the session if it fails before
+// trying again. To prevent delayed packets messing with responses, it will tear
+// down the session before returning if the last attempt at the command failed.
+func (c *Collector) sendCommand(ctx context.Context, cmd ipmi.Command) error {
+	if c.session == nil {
+		// first scrape, target GCd since last scrape, or last command attempt
+		// failed
+		if err := c.newSession(ctx); err != nil {
+			// retry?
+			return err
+		}
+	}
+
+	// allow 2s per command, otherwise if the session has timed out, we'll spend
+	// the entire allowance waiting on this and won't have any left to
+	// re-establish
+	cmdFirstCtx, cancel := context.WithTimeout(ctx, time.Second*2)
+	defer cancel()
+	if err := bmc.ValidateResponse(c.session.SendCommand(cmdFirstCtx, cmd)); err != nil {
+		// the commands we send here should always succeed, so our session's
+		// either expired, or we've hit a BMC bug. Try again from fresh;
+		// resetting only the session is not enough, as a response packet from
+		// the last session could confuse things.
+		sessionExpiriesTotal.Inc()
+
+		// limit the close to a second; it's unlikely we'll get a reply if the
+		// session really has expired
+		cancelCtx, cancel := context.WithTimeout(ctx, time.Second)
+		defer cancel()
+		c.Close(cancelCtx)
+		if err := c.newSession(ctx); err != nil {
+			return err
+		}
+
+		// retry once
+		cmdSecondCtx, cancel := context.WithTimeout(ctx, time.Second*2)
+		defer cancel()
+		if err := bmc.ValidateResponse(c.session.SendCommand(cmdSecondCtx, cmd)); err != nil {
+			// give up, but don't leave the session in a bad state
+			c.Close(ctx)
+			return err
+		}
+	}
+
+	return nil
+}
+
+// newSession establishes a session with a BMC, and performs discovery to
+// relieve subsequent scrapes of doing this. This method will only return a nil
+// error if c.session != nil. It does not close any existing session.
+func (c *Collector) newSession(ctx context.Context) error {
+	providerRequests.Inc()
+	session, closer, err := c.Provider.Session(ctx, c.Target)
+	// setting these here in the error case avoids repeatedly trying to close,
+	// preventing a negative number of open sessions/connections
+	c.session = session
+	c.closer = closer
+	if err != nil {
+		return err
+	}
+	c.supportsGetPowerReading = true
+
+	// set request struct fields based on capabilities; as these structs are
+	// specific to this collector, we only have to do this once, and can tailor
+	// it based on what we discover
+	c.commands.getPowerReading.Req.Mode = dcmi.SystemPowerStatisticsModeNormal
+
+	// we don't use sendCommand() here as that could end up in a loop
+	if err := bmc.ValidateResponse(
+		c.session.SendCommand(ctx, &c.commands.getPowerReading)); err != nil {
+		// let's not try that again
+		c.supportsGetPowerReading = false
+	}
+
+	return nil
 }
