@@ -54,7 +54,7 @@ var (
 		Namespace: namespace,
 		Subsystem: subsystem,
 		Name:      "gc_duration_seconds",
-		Help:      "The amount of time taken by GC. This is stop-the-world.",
+		Help:      "The amount of time taken by GC.",
 		Buckets:   prometheus.ExponentialBuckets(0.0002, 1.2, 10), // 0.0010
 	})
 )
