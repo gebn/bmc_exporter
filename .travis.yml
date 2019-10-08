@@ -17,13 +17,13 @@ install:
 script:
   - |
     bazel \
-      --host_jvm_args=-Xmx8000m \
-      --host_jvm_args=-Xms8000m \
+      --host_jvm_args=-Xmx7000m \
+      --host_jvm_args=-Xms7000m \
       build \
       --config=ci \
       --noshow_progress \
       --noshow_loading_progress \
-      --local_resources=8500,2,1.0 \
+      --local_resources=7500,2,1.0 \
       //...
 #  - |
 #    bazel \
