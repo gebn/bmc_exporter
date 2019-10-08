@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"sync/atomic"
 	"time"
@@ -357,7 +358,7 @@ func (c *Collector) sendCommand(ctx context.Context, cmd ipmi.Command) error {
 		// failed
 		if err := c.newSession(ctx); err != nil {
 			// retry?
-			return err
+			return fmt.Errorf("could not obtain session for %v: %v", c.Target, err)
 		}
 	}
 
