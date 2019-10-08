@@ -9,12 +9,25 @@ import (
 	"github.com/gebn/bmc_exporter/collector"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 var (
+	namespace = "bmc"
+	subsystem = "target"
+
 	// handlerOpts is passed when creating a handler for the collector registry.
 	handlerOpts = promhttp.HandlerOpts{}
+
+	abandonedRequests = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: namespace,
+		Subsystem: subsystem,
+		Name:      "abandoned_requests_total",
+		Help: "The number of scrapes the client gave up on before their " +
+			"request got to the front of the queue for the BMC. This " +
+			"indicates an overly short scrape timeout and/or interval.",
+	})
 )
 
 type scrapeReqOpts struct {
@@ -88,12 +101,28 @@ func (t *Target) eventLoop() {
 // requests.
 func (t *Target) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	done := make(chan struct{})
-	t.scrapeReq <- scrapeReqOpts{
+	ctx := r.Context()
+	opts := scrapeReqOpts{
 		ResponseWriter: w,
 		Request:        r,
 		Done:           done,
 	}
-	<-done
+
+	// this ensures requests that have been abandoned by the client do not block
+	// current ones, which can effectively cause a goroutine leak (#34). Note a
+	// small number of requests briefly blocked here is normal, especially with
+	// multiple prometheis scraping simultaneously - this is just the exporter
+	// doing its job of serialising access to the BMC. Unfortunately Collector
+	// does not allow passing a context, so we cannot have an end-to-end timeout
+	// without other trade-offs (#13).
+	select {
+	case t.scrapeReq <- opts:
+		<-done
+	case <-ctx.Done(): // cancelled when client closes conn
+		abandonedRequests.Inc()
+		// unlikely to be seen by anyone
+		http.Error(w, ctx.Err().Error(), http.StatusServiceUnavailable)
+	}
 }
 
 func (t *Target) LastCollection() int64 {
