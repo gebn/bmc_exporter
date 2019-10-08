@@ -26,8 +26,9 @@ type scrapeReqOpts struct {
 	Done chan struct{}
 }
 
-// Target is a BMC target. This type provides functions that delegate to an
-// event loop run by a single goroutine, freeing us from locking.
+// Target is the outermost wrapper around a BMC being scraped. It encapsulates
+// the Collector implementation, implementing an event loop around it. This
+// serialises access to a BMC, freeing us from locking.
 type Target struct {
 	collector *collector.Collector
 
@@ -49,14 +50,11 @@ func New(c *collector.Collector) *Target {
 	reg := prometheus.NewRegistry()
 	reg.MustRegister(c)
 
-	scrapeReq := make(chan scrapeReqOpts)
-	closeReq := make(chan struct{})
-
 	bmc := &Target{
 		collector: c,
 		handler:   promhttp.HandlerFor(reg, handlerOpts),
-		scrapeReq: scrapeReq,
-		closeReq:  closeReq,
+		scrapeReq: make(chan scrapeReqOpts),
+		closeReq:  make(chan struct{}),
 	}
 
 	bmc.wg.Add(1)
@@ -86,19 +84,6 @@ func (t *Target) eventLoop() {
 	}
 }
 
-// Close cleanly terminates the connection and resources associated with the
-// BMC. This method must only be called once, otherwise it will panic.
-func (t *Target) Close() {
-	t.closeReq <- struct{}{}
-	t.wg.Wait() // satisfied when event loop has stopped
-	close(t.closeReq)
-	close(t.scrapeReq)
-}
-
-func (t *Target) LastCollection() int64 {
-	return t.collector.LastCollection()
-}
-
 // ServeHTTP satisfies http.Handler, allowing this BMC to respond to scrape
 // requests.
 func (t *Target) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -109,4 +94,17 @@ func (t *Target) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Done:           done,
 	}
 	<-done
+}
+
+func (t *Target) LastCollection() int64 {
+	return t.collector.LastCollection()
+}
+
+// Close cleanly terminates the connection and resources associated with the
+// BMC. This method must only be called once, otherwise it will panic.
+func (t *Target) Close() {
+	t.closeReq <- struct{}{}
+	t.wg.Wait() // satisfied when event loop has stopped
+	close(t.closeReq)
+	close(t.scrapeReq)
 }
