@@ -64,7 +64,6 @@ var (
 // retrieve and yield metrics for that BMC.
 type Mapper struct {
 	Provider session.Provider
-	Timeout  time.Duration
 
 	targets map[string]*target.Target
 	mu      sync.RWMutex
@@ -73,10 +72,9 @@ type Mapper struct {
 }
 
 // NewMapper creates a Mapper struct ready for mapping targets to handlers.
-func NewMapper(provider session.Provider, timeout time.Duration) *Mapper {
+func NewMapper(provider session.Provider) *Mapper {
 	m := &Mapper{
 		Provider: provider,
-		Timeout:  timeout,
 		targets:  map[string]*target.Target{},
 		done:     make(chan struct{}),
 	}
@@ -131,7 +129,6 @@ func (m *Mapper) Handler(addr string) http.Handler {
 	bmc := target.New(&collector.Collector{
 		Target:   addr,
 		Provider: m.Provider,
-		Timeout:  m.Timeout,
 	})
 	m.targets[addr] = bmc
 	return bmc

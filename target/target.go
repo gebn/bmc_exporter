@@ -84,6 +84,14 @@ func (t *Target) eventLoop() {
 		case req := <-t.scrapeReq:
 			// we don't worry about receiving a default struct, as the
 			// channel is only closed when this loop has been broken out of.
+
+			// this is utterly hacky, however it is a safe workaround for
+			// getting a context inside the Collect() method, made possible by
+			// the fact that each collector is only called once at a time. This
+			// allows us to implement end-to-end timeouts without creating lots
+			// of garbage each request for new Prometheus structs.
+			t.collector.Context = req.Request.Context()
+
 			// N.B. use of underlying handler - calling t.ServeHTTP would cause
 			// a stack overflow
 			t.handler.ServeHTTP(req.ResponseWriter, req.Request)

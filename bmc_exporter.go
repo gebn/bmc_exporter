@@ -63,8 +63,8 @@ var (
 		String()
 	scrapeTimeout = kingpin.Flag("scrape.timeout", "BMC scrapes will return "+
 		"early after this long. This value should be slightly shorter than "+
-		"the Prometheus scrape_timeout."). // see #13 for why
-		Default("6s").                     // ~3s delay + network RTT
+		"the Prometheus scrape_timeout.").
+		Default("8s"). // network RTT
 		Duration()
 	staticSecrets = kingpin.Flag("session.static.secrets", "Used by the "+
 		"static session provider to look up BMC credentials.").
@@ -90,7 +90,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	mapper := bmc.NewMapper(provider, *scrapeTimeout)
+	mapper := bmc.NewMapper(provider)
 	// must not return early from now on
 
 	http.Handle("/", promhttp.InstrumentHandlerDuration(
@@ -103,7 +103,7 @@ func main() {
 		requestDuration.MustCurryWith(prometheus.Labels{
 			"path": "/bmc",
 		}),
-		bmc.Handler(mapper),
+		bmc.Handler(mapper, *scrapeTimeout),
 	))
 	http.Handle("/metrics", promhttp.InstrumentHandlerDuration(
 		requestDuration.MustCurryWith(prometheus.Labels{

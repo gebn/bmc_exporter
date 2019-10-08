@@ -129,10 +129,18 @@ type Collector struct {
 	// the BMC when required.
 	Provider session.Provider
 
-	// Timeout is the time to allow for each collection before returning what we
-	// have. The aim of having this is to ensure Prometheus gets at least a
-	// subset of the metrics, even if we don't have time to collect them all.
-	Timeout time.Duration
+	// Context is our way of passing a context to the Collect() method, so we
+	// can implement an end-to-end timeout for the scrape in the exporter. The
+	// ultimate aim is to give up scraping before Prometheus gives up on us, so
+	// we can return at least a subset of metrics, even if we don't have time to
+	// collect them all.
+	//
+	// This is a huge hack, but it is safe here. Target sets this before calling
+	// ServeHTTP() on the http.Handler returned by promhttp for this collector's
+	// registry. As access to a given target is serialised by the event loop,
+	// there is no race, and no locking is required. See #13 for more context
+	// (ba dum tss).
+	Context context.Context
 
 	// commands contains all the IPMI structures for commands we will send to
 	// the BMC. This reduces the number of allocations each collection.
@@ -213,14 +221,12 @@ func (c *Collector) Describe(d chan<- *prometheus.Desc) {
 // there would be deadlocks.
 func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	start := time.Now()
-	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
-	defer cancel()
 
 	// this timestamp is used by GC to determine when this target can be deleted
 	atomic.StoreInt64(&c.lastCollection, start.UnixNano())
 
 	success := true
-	if err := c.collect(ctx, ch); err != nil {
+	if err := c.collect(c.Context, ch); err != nil {
 		success = false
 	}
 
