@@ -149,7 +149,7 @@ A single exporter will serialise scrapes, and as there are only two, the BMC's p
 However, in this case, it is recommended to increase the scrape timeout, as if all N scrapes arrive at a single exporter simultaneously for an unresponsive BMC, the last one will take N * `--scrape-timeout`.
 If in doubt, set the scrape timeout to equal the scrape interval.
 
-If you have more BMCs than you are willing to scale vertically, it is recommended to shard them across multiple multiple pairs of exporters, e.g. half go to one pair, half to another.
+If you have more BMCs than you are willing to scale vertically, it is recommended to shard them across multiple pairs of exporters, e.g. half go to one pair, half to another.
 This maintains the max two sessions per BMC property, and means a single exporter dying results in loss of resiliency for a smaller subset of BMCs.
 
 On `SIGINT` or `SIGTERM`, the exporter will shut down its web server, then wait for all in-progress scrapes to finish before closing all BMC connections and sockets as cleanly as possible.
