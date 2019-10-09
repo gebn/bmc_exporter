@@ -20,6 +20,15 @@ var (
 	// handlerOpts is passed when creating a handler for the collector registry.
 	handlerOpts = promhttp.HandlerOpts{}
 
+	scrapeDispatchLatency = promauto.NewHistogram(prometheus.HistogramOpts{
+		Namespace: namespace,
+		Subsystem: subsystem,
+		Name:      "scrape_dispatch_latency_seconds",
+		Help: "Observes the duration spent waiting for the event loop to " +
+			"pick up scrape requests.",
+		Buckets: prometheus.ExponentialBuckets(0.1, 1.8, 10), // 19.84
+	})
+
 	abandonedRequests = promauto.NewCounter(prometheus.CounterOpts{
 		Namespace: namespace,
 		Subsystem: subsystem,
@@ -37,6 +46,10 @@ type scrapeReqOpts struct {
 	// Done receives a single element when the scrape is complete. The handler
 	//should block until it receives a value on this.
 	Done chan struct{}
+
+	// Created is used for instrumenting the time spent waiting for the event
+	// loop. This goes into the scrapeDispatchLatency metric.
+	Created time.Time
 }
 
 // Target is the outermost wrapper around a BMC being scraped. It encapsulates
@@ -85,6 +98,8 @@ func (t *Target) eventLoop() {
 			// we don't worry about receiving a default struct, as the
 			// channel is only closed when this loop has been broken out of.
 
+			scrapeDispatchLatency.Observe(time.Since(req.Created).Seconds())
+
 			// this is utterly hacky, however it is a safe workaround for
 			// getting a context inside the Collect() method, made possible by
 			// the fact that each collector is only called once at a time. This
@@ -114,6 +129,7 @@ func (t *Target) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		ResponseWriter: w,
 		Request:        r,
 		Done:           done,
+		Created:        time.Now(),
 	}
 
 	// this ensures requests that have been abandoned by the client do not block
