@@ -9,8 +9,6 @@ go_library(
     importpath = "github.com/gebn/bmc_exporter/handler/bmc",
     visibility = ["//visibility:public"],
     deps = [
-        "//collector:go_default_library",
-        "//session:go_default_library",
         "//target:go_default_library",
         "@com_github_prometheus_client_golang//prometheus:go_default_library",
         "@com_github_prometheus_client_golang//prometheus/promauto:go_default_library",

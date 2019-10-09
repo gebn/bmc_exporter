@@ -33,8 +33,9 @@ var (
 		Namespace: namespace,
 		Subsystem: subsystem,
 		Name:      "abandoned_requests_total",
-		Help: "The number of scrapes the client gave up on before their " +
-			"request got to the front of the queue for the BMC. This " +
+		Help: "The number of scrapes we have abandoned before the client's " +
+			"request got to the front of the queue for the BMC, either " +
+			"because they gave up or one of our timeouts fired. This " +
 			"indicates an overly short scrape timeout and/or interval.",
 	})
 )
@@ -132,19 +133,21 @@ func (t *Target) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Created:        time.Now(),
 	}
 
-	// this ensures requests that have been abandoned by the client do not block
-	// current ones, which can effectively cause a goroutine leak (#34). Note a
-	// small number of requests briefly blocked here is normal, especially with
-	// multiple prometheis scraping simultaneously - this is just the exporter
-	// doing its job of serialising access to the BMC. Unfortunately Collector
-	// does not allow passing a context, so we cannot have an end-to-end timeout
-	// without other trade-offs (#13).
+	// this ensures we don't clog up the event loop with requests that have
+	// either already been abandoned by the client, or deemed too old by one of
+	// our timeouts. This was first implemented before an end-to-end request
+	// timeout, where blocking indefinitely on the chan send effectively caused
+	// a goroutine leak (#34), however it is still useful for clearing the way
+	// for fresh scrapes as soon as possible.
+	//
+	// Note a small number of requests briefly blocked here is normal,
+	// especially with multiple prometheis scraping simultaneously - this is
+	// just the exporter doing its job of serialising access to the BMC.
 	select {
 	case t.scrapeReq <- opts:
 		<-done
-	case <-ctx.Done(): // cancelled when client closes conn
+	case <-ctx.Done():
 		abandonedRequests.Inc()
-		// unlikely to be seen by anyone
 		http.Error(w, ctx.Err().Error(), http.StatusServiceUnavailable)
 	}
 }

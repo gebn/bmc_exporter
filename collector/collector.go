@@ -129,6 +129,13 @@ type Collector struct {
 	// the BMC when required.
 	Provider session.Provider
 
+	// Timeout is the time to allow for each collection before returning what we
+	// have. This exists to ensure fairness when multiple scrapers are querying
+	// the exporter for a given BMC. Collection will return early when either
+	// this duration has passed, or the context expires, whichever happens
+	// first.
+	Timeout time.Duration
+
 	// Context is our way of passing a context to the Collect() method, so we
 	// can implement an end-to-end timeout for the scrape in the exporter. The
 	// ultimate aim is to give up scraping before Prometheus gives up on us, so
@@ -221,12 +228,14 @@ func (c *Collector) Describe(d chan<- *prometheus.Desc) {
 // there would be deadlocks.
 func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	start := time.Now()
+	ctx, cancel := context.WithTimeout(c.Context, c.Timeout)
+	defer cancel()
 
 	// this timestamp is used by GC to determine when this target can be deleted
 	atomic.StoreInt64(&c.lastCollection, start.UnixNano())
 
 	success := true
-	if err := c.collect(c.Context, ch); err != nil {
+	if err := c.collect(ctx, ch); err != nil {
 		success = false
 	}
 

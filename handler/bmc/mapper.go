@@ -5,8 +5,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gebn/bmc_exporter/collector"
-	"github.com/gebn/bmc_exporter/session"
 	"github.com/gebn/bmc_exporter/target"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -63,18 +61,17 @@ var (
 // target addr, it returns a promhttp-created handler that, when invoked, will
 // retrieve and yield metrics for that BMC.
 type Mapper struct {
-	Provider session.Provider
-
-	targets map[string]*target.Target
-	mu      sync.RWMutex
-	done    chan struct{}  // closed when mapper should shut down
-	wg      sync.WaitGroup // becomes done when ticker has closed
+	provider target.Provider
+	targets  map[string]*target.Target
+	mu       sync.RWMutex
+	done     chan struct{}  // closed when mapper should shut down
+	wg       sync.WaitGroup // becomes done when ticker has closed
 }
 
 // NewMapper creates a Mapper struct ready for mapping targets to handlers.
-func NewMapper(provider session.Provider) *Mapper {
+func NewMapper(p target.Provider) *Mapper {
 	m := &Mapper{
-		Provider: provider,
+		provider: p,
 		targets:  map[string]*target.Target{},
 		done:     make(chan struct{}),
 	}
@@ -126,10 +123,7 @@ func (m *Mapper) Handler(addr string) http.Handler {
 
 	// nope, still don't have it, create. This could panic, but if it does, it
 	// will fail for every request, so we'll realise pretty quickly.
-	bmc := target.New(&collector.Collector{
-		Target:   addr,
-		Provider: m.Provider,
-	})
+	bmc := m.provider.TargetFor(addr)
 	m.targets[addr] = bmc
 	return bmc
 }

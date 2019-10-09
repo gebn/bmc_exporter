@@ -13,9 +13,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/gebn/bmc_exporter/collector"
 	"github.com/gebn/bmc_exporter/handler/bmc"
 	"github.com/gebn/bmc_exporter/handler/root"
 	"github.com/gebn/bmc_exporter/session/file"
+	"github.com/gebn/bmc_exporter/target"
 
 	"github.com/alecthomas/kingpin"
 	"github.com/gebn/go-stamp"
@@ -61,10 +63,19 @@ var (
 		"expose metrics.").
 		Default(":9622").
 		String()
-	scrapeTimeout = kingpin.Flag("scrape.timeout", "BMC scrapes will return "+
-		"early after this long. This value should be slightly shorter than "+
-		"the Prometheus scrape_timeout.").
-		Default("8s"). // network RTT
+	scrapeTimeout = kingpin.Flag("scrape.timeout", "Maximum time allowed for "+
+		"each request to /bmc, including time spent queuing. The aim is to "+
+		"return what we have rather than Prometheus give up and throw "+
+		"everything away, so this value should be slightly shorter than the "+
+		"scrape_timeout.").
+		Default("9s"). // network RTT
+		Duration()
+	collectTimeout = kingpin.Flag("collect.timeout", "Maximum time allowed "+
+		"for a single scrape to query the BMC once it has reached the front "+
+		"of the queue. After this, the exporter will return what is has. "+
+		"This parameter is most useful to ensure fairness when the exporter "+
+		"is being scraped by multiple Prometheis.").
+		Default("9s"). // network RTT
 		Duration()
 	staticSecrets = kingpin.Flag("session.static.secrets", "Used by the "+
 		"static session provider to look up BMC credentials.").
@@ -90,7 +101,14 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	mapper := bmc.NewMapper(provider)
+
+	mapper := bmc.NewMapper(target.ProviderFunc(func(addr string) *target.Target {
+		return target.New(&collector.Collector{
+			Target:   addr,
+			Provider: provider,
+			Timeout:  *collectTimeout,
+		})
+	}))
 	// must not return early from now on
 
 	http.Handle("/", promhttp.InstrumentHandlerDuration(
