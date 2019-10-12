@@ -2,15 +2,8 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
-    srcs = [
-        "bmc.go",
-        "mapper.go",
-    ],
+    srcs = ["bmc.go"],
     importpath = "github.com/gebn/bmc_exporter/handler/bmc",
     visibility = ["//visibility:public"],
-    deps = [
-        "//target:go_default_library",
-        "@com_github_prometheus_client_golang//prometheus:go_default_library",
-        "@com_github_prometheus_client_golang//prometheus/promauto:go_default_library",
-    ],
+    deps = ["//bmc/target:go_default_library"],
 )

@@ -13,11 +13,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gebn/bmc_exporter/collector"
+	"github.com/gebn/bmc_exporter/bmc/collector"
+	"github.com/gebn/bmc_exporter/bmc/target"
 	"github.com/gebn/bmc_exporter/handler/bmc"
 	"github.com/gebn/bmc_exporter/handler/root"
 	"github.com/gebn/bmc_exporter/session/file"
-	"github.com/gebn/bmc_exporter/target"
 
 	"github.com/alecthomas/kingpin"
 	"github.com/gebn/go-stamp"
@@ -102,7 +102,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	mapper := bmc.NewMapper(target.ProviderFunc(func(addr string) *target.Target {
+	mapper := target.NewMapper(target.ProviderFunc(func(addr string) *target.Target {
 		return target.New(&collector.Collector{
 			Target:   addr,
 			Provider: provider,

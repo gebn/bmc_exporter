@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gebn/bmc_exporter/collector"
+	"github.com/gebn/bmc_exporter/bmc/collector"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"

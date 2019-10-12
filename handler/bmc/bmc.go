@@ -4,9 +4,11 @@ import (
 	"context"
 	"net/http"
 	"time"
+
+	"github.com/gebn/bmc_exporter/bmc/target"
 )
 
-func Handler(m *Mapper, timeout time.Duration) http.Handler {
+func Handler(m *target.Mapper, timeout time.Duration) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		target := r.URL.Query().Get("target")
 		if target == "" {

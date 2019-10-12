@@ -6,7 +6,7 @@ go_library(
         "collector.go",
         "commands.go",
     ],
-    importpath = "github.com/gebn/bmc_exporter/collector",
+    importpath = "github.com/gebn/bmc_exporter/bmc/collector",
     visibility = ["//visibility:public"],
     deps = [
         "//session:go_default_library",

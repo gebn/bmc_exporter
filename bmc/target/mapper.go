@@ -1,11 +1,9 @@
-package bmc
+package target
 
 import (
 	"net/http"
 	"sync"
 	"time"
-
-	"github.com/gebn/bmc_exporter/target"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -22,36 +20,33 @@ var (
 	// only cleared on GC.
 	inactivityThreshold = time.Minute * 30
 
-	namespace = "bmc"
-	subsystem = "mapper"
-
-	queries = promauto.NewCounter(prometheus.CounterOpts{
+	mapperQueries = promauto.NewCounter(prometheus.CounterOpts{
 		Namespace: namespace,
 		Subsystem: subsystem,
-		Name:      "queries_total",
+		Name:      "mapper_queries_total",
 		Help: "The number of times a handler has been requested from the " +
 			"mapper.",
 	})
-	hits = promauto.NewCounter(prometheus.CounterOpts{
+	mapperHits = promauto.NewCounter(prometheus.CounterOpts{
 		Namespace: namespace,
 		Subsystem: subsystem,
-		Name:      "hits_total",
+		Name:      "mapper_hits_total",
 		Help:      "The number of times a previously created handler was returned.",
 	})
-	gcTargetsCleared = promauto.NewHistogram(prometheus.HistogramOpts{
+	mapperGcTargetsCleared = promauto.NewHistogram(prometheus.HistogramOpts{
 		Namespace: namespace,
 		Subsystem: subsystem,
-		Name:      "gc_targets_cleared",
+		Name:      "mapper_gc_targets_cleared",
 		Help:      "Observes the number of targets removed by GC each cycle.",
 		// can also get number of GCs from _count, and total number of removed
 		// targets from _sum; can obtain size of map with queries - hits -
 		// targets cleared sum
 		Buckets: prometheus.ExponentialBuckets(1, 2, 10), // 512
 	})
-	gcDuration = promauto.NewHistogram(prometheus.HistogramOpts{
+	mapperGcDuration = promauto.NewHistogram(prometheus.HistogramOpts{
 		Namespace: namespace,
 		Subsystem: subsystem,
-		Name:      "gc_duration_seconds",
+		Name:      "mapper_gc_duration_seconds",
 		Help:      "The amount of time taken by GC.",
 		Buckets:   prometheus.ExponentialBuckets(0.0005, 1.2, 10), // 0.0026
 	})
@@ -61,18 +56,18 @@ var (
 // target addr, it returns a promhttp-created handler that, when invoked, will
 // retrieve and yield metrics for that BMC.
 type Mapper struct {
-	provider target.Provider
-	targets  map[string]*target.Target
+	provider Provider
+	targets  map[string]*Target
 	mu       sync.RWMutex
 	done     chan struct{}  // closed when mapper should shut down
 	wg       sync.WaitGroup // becomes done when ticker has closed
 }
 
 // NewMapper creates a Mapper struct ready for mapping targets to handlers.
-func NewMapper(p target.Provider) *Mapper {
+func NewMapper(p Provider) *Mapper {
 	m := &Mapper{
 		provider: p,
-		targets:  map[string]*target.Target{},
+		targets:  map[string]*Target{},
 		done:     make(chan struct{}),
 	}
 	m.wg.Add(1)
@@ -99,14 +94,14 @@ func NewMapper(p target.Provider) *Mapper {
 // return the original handler, otherwise it will create a new one. It is
 // effectively a synchronised, lazy map access.
 func (m *Mapper) Handler(addr string) http.Handler {
-	queries.Inc()
+	mapperQueries.Inc()
 	// first, try with a read lock, optimistically assuming it's there; this
 	// will be the case most of the time
 	m.mu.RLock()
 	t, ok := m.targets[addr]
 	m.mu.RUnlock()
 	if ok {
-		hits.Inc()
+		mapperHits.Inc()
 		return t
 	}
 
@@ -134,14 +129,14 @@ func (m *Mapper) Handler(addr string) http.Handler {
 // call it a day when a given BMC hasn't been scraped in a while to avoid an
 // unbounded increase in memory use over time.
 func (m *Mapper) gc() {
-	timer := prometheus.NewTimer(gcDuration)
+	timer := prometheus.NewTimer(mapperGcDuration)
 	defer timer.ObserveDuration()
 
 	threshold := time.Now().Add(-inactivityThreshold).UnixNano()
-	expired := m.closeTargets(func(t *target.Target) bool {
+	expired := m.closeTargets(func(t *Target) bool {
 		return t.LastCollection() < threshold
 	})
-	gcTargetsCleared.Observe(float64(expired))
+	mapperGcTargetsCleared.Observe(float64(expired))
 }
 
 func (m *Mapper) Close() {
@@ -149,7 +144,7 @@ func (m *Mapper) Close() {
 	// close the rest - this is fine as they will never try to close the same
 	// one due to the mutex
 	m.done <- struct{}{}
-	m.closeTargets(func(_ *target.Target) bool {
+	m.closeTargets(func(_ *Target) bool {
 		return true
 	})
 
@@ -163,11 +158,11 @@ func (m *Mapper) Close() {
 // simply involves a subset rather than all targets. This method is safe to call
 // concurrently, even with predicates that select an intersecting set of
 // targets.
-func (m *Mapper) closeTargets(shouldClose func(t *target.Target) bool) int {
+func (m *Mapper) closeTargets(shouldClose func(t *Target) bool) int {
 	// put all eligible targets in a slice rather than clear them up immediately
 	// to ensure we don't switch to another goroutine - in the case of GC, we
 	// want to run as quickly as possible
-	toClose := []*target.Target{}
+	toClose := []*Target{}
 
 	m.mu.Lock()
 	for addr, t := range m.targets {
@@ -186,7 +181,7 @@ func (m *Mapper) closeTargets(shouldClose func(t *target.Target) bool) int {
 	wg := sync.WaitGroup{}
 	wg.Add(len(toClose))
 	for _, t := range toClose {
-		go func(t *target.Target) {
+		go func(t *Target) {
 			defer wg.Done()
 			// this uses the event loop, so will wait for any in-progress scrape
 			// to finish
