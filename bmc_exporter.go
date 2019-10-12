@@ -117,6 +117,16 @@ func main() {
 
 	srv := &http.Server{
 		Addr: *listenAddr,
+
+		// solves is waiting indefinitely before we get to a handler; handlers
+		// are capable of timing out themselves. This isn't intended to ensure
+		// we have time to do something useful with the request - it is only to
+		// avoid a possible goroutine leak (#39).
+		ReadHeaderTimeout: *scrapeTimeout,
+
+		// this is above the max recommended scrape interval
+		// (https://stackoverflow.com/a/40233721)
+		IdleTimeout: time.Minute * 3,
 	}
 	wg := sync.WaitGroup{}
 	wg.Add(1)
