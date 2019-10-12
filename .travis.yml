@@ -2,8 +2,8 @@ sudo: false
 language: minimal  # Bazel downloads its own Go SDK
 env:
   global:
-    - BAZEL_VERSION=0.29.1
-    - BAZEL_SHA256=f87f0057cd7d6666e4d371267fbe27a9ed47f42e6663694a1cd755c8c6858baf
+    - BAZEL_VERSION=1.0.0
+    - BAZEL_SHA256=f8490463360fff5992b5a5af93f930ff984588765f9ccf3e7dd03db5145fbf0f
 before_install:
   - |
     wget -O install.sh "https://github.com/bazelbuild/bazel/releases/download/${BAZEL_VERSION}/bazel-${BAZEL_VERSION}-installer-linux-x86_64.sh"
