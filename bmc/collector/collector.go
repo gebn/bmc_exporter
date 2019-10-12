@@ -99,6 +99,16 @@ var (
 	)
 )
 
+// commands contains all the layers needed to perform a collection. This is a
+// single allocation, lasting for the lifetime of the collector, meaning there
+// are no layer allocations during collection.
+type commands struct {
+	getSystemGUID    ipmi.GetSystemGUIDCmd
+	getDeviceID      ipmi.GetDeviceIDCmd
+	getChassisStatus ipmi.GetChassisStatusCmd
+	getPowerReading  dcmi.GetPowerReadingCmd
+}
+
 // Collector implements the custom collector to scrape metrics from a single BMC
 // on demand. Note this struct is only called by a single Target by a single
 // goroutine, so contrary to the Prometheus docs, is not safe for concurrent
@@ -151,7 +161,7 @@ type Collector struct {
 
 	// commands contains all the IPMI structures for commands we will send to
 	// the BMC. This reduces the number of allocations each collection.
-	commands commands
+	commands
 
 	// session is the session we've established with the target addr, if any.
 	// This will be nil if no collection has been attempted, or if
@@ -273,20 +283,20 @@ func (c *Collector) collect(ctx context.Context, ch chan<- prometheus.Metric) er
 }
 
 func (c *Collector) bmcInfo(ctx context.Context, ch chan<- prometheus.Metric) error {
-	if err := c.sendCommand(ctx, &c.commands.getSystemGUID); err != nil {
+	if err := c.sendCommand(ctx, &c.getSystemGUID); err != nil {
 		return err
 	}
-	if err := c.sendCommand(ctx, &c.commands.getDeviceID); err != nil {
+	if err := c.sendCommand(ctx, &c.getDeviceID); err != nil {
 		return err
 	}
 	guidBuf := [36]byte{}
-	encodeHex(guidBuf[:], c.commands.getSystemGUID.Rsp.GUID)
+	encodeHex(guidBuf[:], c.getSystemGUID.Rsp.GUID)
 	ch <- prometheus.MustNewConstMetric(
 		bmcInfo,
 		prometheus.GaugeValue,
 		1,
 		string(guidBuf[:]),
-		bmc.FirmwareVersion(&c.commands.getDeviceID.Rsp),
+		bmc.FirmwareVersion(&c.getDeviceID.Rsp),
 		c.session.Version(),
 	)
 	return nil
@@ -305,11 +315,11 @@ func encodeHex(dst []byte, guid [16]byte) {
 }
 
 func (c *Collector) chassisStatus(ctx context.Context, ch chan<- prometheus.Metric) error {
-	if err := c.sendCommand(ctx, &c.commands.getChassisStatus); err != nil {
+	if err := c.sendCommand(ctx, &c.getChassisStatus); err != nil {
 		return err
 	}
 
-	rsp := &c.commands.getChassisStatus.Rsp
+	rsp := &c.getChassisStatus.Rsp
 
 	ch <- prometheus.MustNewConstMetric(
 		chassisPoweredOn,
@@ -341,10 +351,10 @@ func (c *Collector) chassisStatus(ctx context.Context, ch chan<- prometheus.Metr
 }
 
 func (c *Collector) powerDraw(ctx context.Context, ch chan<- prometheus.Metric) error {
-	if err := c.sendCommand(ctx, &c.commands.getPowerReading); err != nil {
+	if err := c.sendCommand(ctx, &c.getPowerReading); err != nil {
 		return err
 	}
-	rsp := &c.commands.getPowerReading.Rsp
+	rsp := &c.getPowerReading.Rsp
 	if !rsp.Active {
 		return ErrPowerMgmtInactive
 	}
@@ -429,11 +439,11 @@ func (c *Collector) newSession(ctx context.Context) error {
 	// set request struct fields based on capabilities; as these structs are
 	// specific to this collector, we only have to do this once, and can tailor
 	// it based on what we discover
-	c.commands.getPowerReading.Req.Mode = dcmi.SystemPowerStatisticsModeNormal
+	c.getPowerReading.Req.Mode = dcmi.SystemPowerStatisticsModeNormal
 
 	// we don't use sendCommand() here as that could end up in a loop
 	if err := bmc.ValidateResponse(
-		c.session.SendCommand(ctx, &c.commands.getPowerReading)); err != nil {
+		c.session.SendCommand(ctx, &c.getPowerReading)); err != nil {
 		// let's not try that again
 		c.supportsGetPowerReading = false
 	}

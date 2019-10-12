@@ -2,10 +2,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
-    srcs = [
-        "collector.go",
-        "commands.go",
-    ],
+    srcs = ["collector.go"],
     importpath = "github.com/gebn/bmc_exporter/bmc/collector",
     visibility = ["//visibility:public"],
     deps = [
