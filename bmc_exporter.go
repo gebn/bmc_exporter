@@ -111,24 +111,9 @@ func main() {
 	}))
 	// must not return early from now on
 
-	http.Handle("/", promhttp.InstrumentHandlerDuration(
-		requestDuration.MustCurryWith(prometheus.Labels{
-			"path": "/",
-		}),
-		root.Handler(),
-	))
-	http.Handle("/bmc", promhttp.InstrumentHandlerDuration(
-		requestDuration.MustCurryWith(prometheus.Labels{
-			"path": "/bmc",
-		}),
-		bmc.Handler(mapper, *scrapeTimeout),
-	))
-	http.Handle("/metrics", promhttp.InstrumentHandlerDuration(
-		requestDuration.MustCurryWith(prometheus.Labels{
-			"path": "/metrics",
-		}),
-		promhttp.Handler(),
-	))
+	registerHandler("/", root.Handler())
+	registerHandler("/bmc", bmc.Handler(mapper, *scrapeTimeout))
+	registerHandler("/metrics", promhttp.Handler())
 
 	srv := &http.Server{
 		Addr: *listenAddr,
@@ -157,4 +142,15 @@ func main() {
 	}
 	wg.Wait()
 	mapper.Close()
+}
+
+// registerHandler adds an instrumented version of the provided handler to the
+// default mux at the indicated path.
+func registerHandler(path string, handler http.Handler) {
+	http.Handle(path, promhttp.InstrumentHandlerDuration(
+		requestDuration.MustCurryWith(prometheus.Labels{
+			"path": path,
+		}),
+		handler,
+	))
 }
