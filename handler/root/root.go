@@ -12,21 +12,22 @@ import (
 
 const (
 	html = `<!DOCTYPE html>
-    <html lang="en">
-        <head>
-            <meta charset="utf-8"/>
-            <title>{{ .Name }}</title>
-        </head>
-        <body>
-            <h1>{{ .Name }}</h1>
-            <form action="/bmc">
-                <label>Target:</label>
-                <input type="text" name="target" placeholder="IP[:port=623]"/>
-                <input type="submit" value="Scrape"/>
-            </form>
-            <pre>{{ .Version }}</pre>
-        </body>
-    </html>`
+<html lang="en">
+    <head>
+        <meta charset="utf-8"/>
+        <title>{{ .Name }}</title>
+    </head>
+    <body>
+        <h1>{{ .Name }}</h1>
+        <form action="/bmc">
+            <label>Target:</label>
+            <input type="text" name="target" placeholder="IP[:port=623]"/>
+            <input type="submit" value="Scrape"/>
+        </form>
+        <pre>{{ .Version }}</pre>
+    </body>
+</html>
+`
 )
 
 var (
