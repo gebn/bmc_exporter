@@ -44,7 +44,7 @@ var (
 		Namespace: namespace,
 		Subsystem: subsystem,
 		Name:      "build_time",
-		Help:      "When the running exporter was build, as seconds since the Unix Epoch.",
+		Help:      "When the running exporter was built, as seconds since the Unix Epoch.",
 	})
 	requestDuration = promauto.NewHistogramVec(
 		prometheus.HistogramOpts{
