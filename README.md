@@ -19,7 +19,7 @@ Assuming a 30s scrape interval, 10,000 BMCs can be scraped with a single core an
 
 ## Usage
 
-The exporter requires one file descriptor per target BMC for the UDP socket, so you may need to increase the limit.
+The exporter requires one file descriptor per BMC for the UDP socket, so you may need to increase the limit.
 To see the current number of file descriptors a process may open, run `ulimit -n`.
 You can maximise the number of fds the exporter may use by running `ulimit -Sn $(ulimit -Hn)`.
 
@@ -38,7 +38,7 @@ Although IPMI allows a small number of commands to be sent outside a session, th
 To separate scrape logic from session establishment, which is more bespoke to a given manufacturer, model and organisation, the exporter uses the concept of a *session provider*.
 This is an [interface](https://godoc.org/github.com/gebn/bmc_exporter/session#Provider) which returns a [`bmc.Session`](https://godoc.org/github.com/gebn/bmc#Session) struct (through which commands can be sent) for the provided target string.
 The specifics of IPMI version, obtaining credentials, and supported algorithms are all hidden from the exporter behind this interface.
-As the exporter does not attempt to make any modifications to a BMC, it is strongly recommended for the session to be established at the *User* privilege level (effectively "read-only").
+As the exporter does not attempt to make any modifications to a BMC, and we go out of our way to avoid *Operator* DCMI commands, it is strongly recommended for the session to be established at the *User* privilege level (effectively "read-only").
 Any lower, the exporter will not be able to carry out its tasks, and any higher breaks the principle of least privilege.
 
 The exporter defaults to a file session provider, which reads credentials from a file of the following form:
@@ -56,27 +56,27 @@ The exporter defaults to a file session provider, which reads credentials from a
 The location of this file defaults to `secrets.yml` in the current working directory, and can be overridden with `--session.static.secrets`.
 Anonymous login and the presence of a "BMC key" (IPMI v2.0 only), while supported by the underlying library, are not currently implemented.
 
-If this is not workable for your requirements, you can implement a custom provider to do practically anything.
+If you require something different, you can implement a custom provider to do practically anything, e.g. retrieve the credentials dynamically from [Vault](https://www.vaultproject.io/).
 Abstractions have been created to make this easier, including one that only requires implementing the equivalent of a `Credentials(target) (username, password)` method.
 See the `session` package for more details.
 
 ### Scrape Interval
 
 A scrape interval of 30s is recommended.
-The IPMI specification recommends a 60s (+/-3s) timeout on sessions, so provided your scrape interval is below this, ceteris paribus, this will be the only session for the lifetime of the exporter process.
-If deployed in a pair as recommended in the [Deployment](#Deployment) section, this will result in a scrape every 60s to each exporter assuming perfect round-robin.
+The IPMI specification recommends a 60s (+/-3s) timeout for sessions on the BMC, so provided your scrape interval is below this, ceteris paribus, this will be the only session for the lifetime of the exporter process.
+If deployed in a pair as recommended in the [Deployment](#Deployment) section, this will result in each exporter scraping every 60s, assuming perfect round-robin.
 If `bmc_collector_session_expiries_total` increases at a constant rate, this may indicate the scrape interval is too large, but could also be caused by contended or non-conformant BMCs.
 
 ### Scrape Timeout
 
-Scraping a healthy, available BMC in the same data centre takes a fraction of a second, however this will never be the case for all targets with any sizeable fleet.
+Scraping a healthy, available BMC from within the data centre takes a fraction of a second, however this will never be the case for all targets with any sizeable fleet.
 The exporter will retry commands outside a session in an exponential back-off, but retrying inside a session has been known to cause corrupted responses (#29), so we re-establish the session after 5 seconds.
-It has an internal time to allow for each scrape, defaulting to 8s (to allow wiggle room before the default Prometheus scrape timeout of 10s) and overridable via `--scrape.timeout`.
+Each scrape also has a timeout within the exporter, defaulting to 8s (to allow wiggle room before the default Prometheus scrape timeout of 10s) and overridable via `--scrape.timeout`.
 The idea behind this is that *some* data is better than no data.
 If a BMC is excruciatingly slow, it is better to return a subset of metrics than nothing whatsoever.
 This can only be done if the exporter knows to give up on the BMC before Prometheus gives up on the exporter.
 The exporter always exposes a `bmc_up` metric with whether it finished the scrape successfully.
-All targets in Prometheus that hit the exporter should be permanently `UP`, regardless of the underlying machine.
+All targets in Prometheus that hit the exporter should show as `up`, regardless of the underlying machine.
 If this is not the case, it suggests something wrong with the exporter or Prometheus configuration rather the BMC.
 
 ## Metrics
@@ -123,11 +123,11 @@ Number of machines by BMC firmware:
 
 Number of machines with a cooling fault:
 
-    count(chassis_cooling_fault == 1)
+    sum(chassis_cooling_fault == bool 1)
 
 Ratio of machines currently powered on:
 
-    count(chassis_powered_on == 1) / count(chassis_powered_on)
+    sum(chassis_powered_on == bool 1) / count(chassis_powered_on)
 
 It is strongly recommended to set appropriate target labels for the manufacturer, model and location of each machine.
 This allows more interesting aggregations, e.g. viewing the different firmware versions installed for a single model, or power usage by data centre field.
@@ -140,7 +140,7 @@ As the IPMI protocol operates in lock-step, similar to TFTP, a small increase in
 It is strongly recommended to locate the exporter in the same region as the BMCs it scrapes.
 Attempting to scrape across the Atlantic or further will slow down scrapes significantly, and the effects of any packet loss will be magnified.
 
-The exporter has been designed around only having one open socket, session, and sending only one command at once to a given BMC.
+The exporter has been designed around only having one open socket and session to a given BMC, and sending only one command at once to it.
 This is important, as the specification only requires support for two concurrent sessions between the LAN and console channels, and a network buffer with capacity for two packets.
 It is recommended to have a pair of exporters in each region, behind the same DNS record or K8s service, and point Prometheus at that alias.
 This will result in two sessions being established with the BMC, which allows room for use by other system management software, while having N+1 resiliency.
@@ -149,11 +149,12 @@ A single exporter will serialise scrapes, and as there are only two, the BMC's p
 However, in this case, it is recommended to increase the scrape timeout, as if all N scrapes arrive at a single exporter simultaneously for an unresponsive BMC, the last one will take N * `--scrape-timeout`.
 If in doubt, set the scrape timeout to equal the scrape interval.
 
-If you have more BMCs than you are willing to scale vertically, it is recommended to shard them across multiple pairs of exporters, e.g. half go to one pair, half to another.
-This maintains the max two sessions per BMC property, and means a single exporter dying results in loss of resiliency for a smaller subset of BMCs.
+If you have too many BMCs to scrape with one exporter, or would like to spread the load more thinly, it is recommended to shard targets across multiple pairs of exporters, e.g. half go to one pair, half to another.
+This maintains the property of having at most two sessions per BMC, and means a single exporter dying results in loss of resiliency for a smaller subset of BMCs.
 
 On `SIGINT` or `SIGTERM`, the exporter will shut down its web server, then wait for all in-progress scrapes to finish before closing all BMC connections and sockets as cleanly as possible.
-This can take some time with thousands of BMCs, especially if some are unresponsive, in which case the timeout will eventually kick in.
+This can take some time with thousands of BMCs, especially if some are unresponsive.
+There is no timeout built into the exporter; we rely on our environment killing us when it is fed up of waiting.
 
 ## Limitations
 
