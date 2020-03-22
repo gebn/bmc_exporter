@@ -2,17 +2,17 @@ os: linux
 language: shell  # N.B. Bazel downloads its own Go SDK
 env:
   global:
-    - BAZEL_VERSION=2.2.0
-    - BAZEL_SHA256=6dfcd3b3d7a8811f53a1776c285cf533bc12c33d1eaf49b6105e9699df26ef57
+  - BAZEL_VERSION=2.2.0
+  - BAZEL_SHA256=6dfcd3b3d7a8811f53a1776c285cf533bc12c33d1eaf49b6105e9699df26ef57
 before_install:
-  - |
-    wget -O install.sh "https://github.com/bazelbuild/bazel/releases/download/${BAZEL_VERSION}/bazel-${BAZEL_VERSION}-installer-linux-x86_64.sh"
-    echo "${BAZEL_SHA256}  install.sh" | sha256sum -c
-    chmod +x install.sh
+- |
+  wget -O install.sh "https://github.com/bazelbuild/bazel/releases/download/${BAZEL_VERSION}/bazel-${BAZEL_VERSION}-installer-linux-x86_64.sh"
+  echo "${BAZEL_SHA256}  install.sh" | sha256sum -c
+  chmod +x install.sh
 install:
-  - |
-    ./install.sh --user
-    rm -f install.sh
+- |
+  ./install.sh --user
+  rm -f install.sh
 script:
-  - bazel build --config=ci //...
-  - bazel-bin/linux_amd64_static_pure_stripped/bmc_exporter --version
+- bazel build --config=ci //...
+- bazel-bin/linux_amd64_static_pure_stripped/bmc_exporter --version
