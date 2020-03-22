@@ -43,7 +43,7 @@ protobuf_deps()
 
 go_repository(
     name = "com_github_gebn_bmc",
-    commit = "e083998b230b66a6f8c987845e727e3b901c570d",
+    commit = "278c1ff1f2aca0e2c7fe6326529db84dcaa5454f",
     importpath = "github.com/gebn/bmc",
 )
 

@@ -13,7 +13,7 @@ def _kingpin(go_repository):
     _maybe(
         go_repository,
         name = "com_github_alecthomas_units",
-        commit = "680d30ca31172657fa50e996eb82d790d1d8b96e",
+        commit = "f65c72e2690dc4b403c8bd637baf4611cd4c069b",
         importpath = "github.com/alecthomas/units",
     )
 
@@ -37,6 +37,6 @@ def deps(go_repository):
     _maybe(
         go_repository,
         name = "com_github_go_yaml_yaml",
-        tag = "v2.2.4",
+        tag = "v2.2.8",
         importpath = "github.com/go-yaml/yaml",
     )
