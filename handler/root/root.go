@@ -21,7 +21,7 @@ const (
         <h1>{{ .Name }}</h1>
         <form action="/bmc">
             <label>Target:</label>
-            <input type="text" name="target" placeholder="IP[:port=623]"/>
+            <input type="text" name="target" placeholder="IP[:port=623]" required="required"/>
             <input type="submit" value="Scrape"/>
         </form>
         <pre>{{ .Version }}</pre>
