@@ -172,6 +172,9 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 }
 
 func (c *Collector) collect(ctx context.Context, ch chan<- prometheus.Metric) error {
+	// N.B. once a session is established, we assume it will not be invalidated
+	// in the same scrape. If this is invalid, we have problems - restarting a
+	// session involves potentially hundreds of commands to enumerate the SDR.
 	if c.session == nil {
 		// first scrape, target GCd since last scrape, or last command attempt
 		// failed
@@ -183,6 +186,8 @@ func (c *Collector) collect(ctx context.Context, ch chan<- prometheus.Metric) er
 			return err
 		}
 	} else {
+		// we have a session, but the BMC might have forgotten about it; use the
+		// BMCInfo subcollector as a canary to test
 		canaryCtx, canaryCancel := context.WithTimeout(ctx, time.Second*2)
 		defer canaryCancel()
 		if err := c.bmcInfo.Collect(canaryCtx, ch); err != nil {
@@ -214,9 +219,12 @@ func (c *Collector) collect(ctx context.Context, ch chan<- prometheus.Metric) er
 
 	// TODO probably should be two different methods...?
 
-	// we don't continue on error, as the only reason for an error is ctx
-	// expiry, in which case there is no time to send any more commands so we
-	// return what we have
+	// let each subcollector do its thing. We break on error as the only reason
+	// for an error is ctx expiry, in which case there is no time to send any
+	// more commands so we return what we have. This could be done in parallel,
+	// however very little computation is done - it's really just sending
+	// commands, which have to be serialised anyway, so there would be little
+	// gain.
 	if err := c.chassisStatus.Collect(ctx, ch); err != nil {
 		return err
 	}

@@ -51,7 +51,7 @@ func (c *ProcessorTemperatures) Initialise(_ context.Context, s bmc.Session, sdr
 		reader, err := bmc.NewSensorReader(fsr)
 		if err != nil {
 			// requires something not yet implemented (e.g. non-linear); skip
-			continue // TODO increment metric?
+			continue
 		}
 		readers[cpu] = reader
 	}
@@ -67,7 +67,6 @@ func extractProcessorTempFSRs(sdrr bmc.SDRRepository) map[ipmi.EntityID][]*ipmi.
 			continue
 		}
 		if fsr.BaseUnit != ipmi.SensorUnitCelsius {
-			// TODO increment a counter? log?
 			continue
 		}
 		switch fsr.Entity {

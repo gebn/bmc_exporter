@@ -2,7 +2,6 @@ package subcollector
 
 import (
 	"context"
-	"errors"
 	"strconv"
 
 	"github.com/gebn/bmc"
@@ -13,16 +12,12 @@ import (
 )
 
 var (
-	ErrPowerMgmtInactive = errors.New("BMC indicated power measurement is inactive")
-
 	powerDraw = prometheus.NewDesc(
 		"power_draw_watts",
 		"The instantaneous amount of electricity being used by the machine.",
 		[]string{"psu"}, nil,
 	)
 )
-
-// TODO needs reworking to try the SDRR, then fall back to overall via DCMI
 
 type PowerDraw struct {
 	bmc.Session
@@ -51,7 +46,7 @@ func (c *PowerDraw) Initialise(ctx context.Context, s bmc.Session, sdrr bmc.SDRR
 			reader, err := bmc.NewSensorReader(fsr)
 			if err != nil {
 				// requires something not yet implemented (e.g. non-linear); skip
-				continue // TODO increment metric?
+				continue
 			}
 			readers[psu] = reader
 		}
@@ -79,7 +74,6 @@ func extractPowerSupplyFSRs(sdrr bmc.SDRRepository) []*ipmi.FullSensorRecord {
 		// sensor type for power draw is Other (0x0b), so not helpful for
 		// filtering here
 		if fsr.BaseUnit != ipmi.SensorUnitWatts {
-			// TODO increment a counter? log?
 			continue
 		}
 		if fsr.Entity != ipmi.EntityIDPowerSupply {
@@ -97,7 +91,6 @@ func (c *PowerDraw) Describe(ch chan<- *prometheus.Desc) {
 func (c *PowerDraw) Collect(ctx context.Context, ch chan<- prometheus.Metric) error {
 	switch {
 	case len(c.sensors) > 0:
-		// use SDR
 		for psu, reader := range c.sensors {
 			reading, err := reader.Read(ctx, c.Session)
 			if err != nil {
@@ -117,7 +110,8 @@ func (c *PowerDraw) Collect(ctx context.Context, ch chan<- prometheus.Metric) er
 		}
 		rsp := &c.getPowerReading.Rsp
 		if !rsp.Active {
-			return nil // TODO ErrPowerMgmtInactive?
+			// no error has occurred
+			return nil
 		}
 		ch <- prometheus.MustNewConstMetric(
 			powerDraw,
