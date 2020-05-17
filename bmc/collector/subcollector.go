@@ -21,12 +21,18 @@ type Subcollector interface {
 	// the lifetime of the target's prometheus.Collector. This is also necessary
 	// to ensure Describe() can be called on that collector at any time.
 	//
-	// This method will always be called before the first call to Collect(). It
-	// may be called multiple times, so should ensure previously initialised
-	// state is cleared up correctly. If an error occurs during initialisation,
-	// the subcollector should do as much as possible in its Collect() method,
-	// or no-op; this is why Initialise() does not return an error - we don't
-	// abandon everything for the sake of one subcollector.
+	// Whether this method should return an error is an interesting discussion.
+	// The obvious case is to avoid incomplete initialisation, resulting in us
+	// ignoring features of the BMC (e.g. DCMI) because we didn't have enough
+	// time to detect them. This would lead to missing metrics for the entire
+	// length of the session. The issue is BMCs have a habit of ignoring
+	// commands they don't know about. A missed deadline could be us taking too
+	// long (e.g. packet loss, high latency), or it could be the BMC ignoring
+	// us; we can never be sure which. This is the case with all commands that
+	// could be sent in this method. If the implementation is sure it is not
+	// sending a command the BMC may not support, it can return an error to void
+	// the session and retry next scrape. This is a signal for a human to
+	// investigate why it's taking so long.
 	//
 	// The SDR repo is passed as an optimisation to relieve multiple
 	// subcollectors from having to retrieve this several times themselves; it
@@ -36,7 +42,7 @@ type Subcollector interface {
 	// subcollectors should contain all their commands as fields, lasting for
 	// the lifetime of the object, so no allocations occur during initialisation
 	// or collection.
-	Initialise(context.Context, bmc.Session, bmc.SDRRepository)
+	Initialise(context.Context, bmc.Session, bmc.SDRRepository) error
 
 	// Describe is identical to prometheus.Collector's Describe() method. It
 	// should statically send all descriptors for metrics the subcollector is
@@ -53,6 +59,6 @@ type Subcollector interface {
 	// was not called before.
 	Collect(context.Context, chan<- prometheus.Metric) error
 
-    // I haven't implemented a subcollector with any state needing explicit
-    // Close()ing, so this interface lacks that method.
+	// I haven't implemented a subcollector with any state needing explicit
+	// Close()ing, so this interface lacks that method.
 }

@@ -30,8 +30,9 @@ type BMCInfo struct {
 	getDeviceID   ipmi.GetDeviceIDCmd
 }
 
-func (c *BMCInfo) Initialise(_ context.Context, s bmc.Session, _ bmc.SDRRepository) {
+func (c *BMCInfo) Initialise(_ context.Context, s bmc.Session, _ bmc.SDRRepository) error {
 	c.Session = s
+	return nil
 }
 
 func (*BMCInfo) Describe(ch chan<- *prometheus.Desc) {
@@ -40,7 +41,7 @@ func (*BMCInfo) Describe(ch chan<- *prometheus.Desc) {
 
 func (c *BMCInfo) Collect(ctx context.Context, ch chan<- prometheus.Metric) error {
 	cmd := &c.getSystemGUID
-	code, err := c.Session.SendCommand(ctx, cmd)
+	code, err := c.Session.SendCommand(ctx, cmd) // segfault
 	if err := bmc.ValidateResponse(code, err); err != nil {
 		return err
 	}

@@ -43,11 +43,12 @@ type ChassisStatus struct {
 	getChassisStatus ipmi.GetChassisStatusCmd
 }
 
-func (s *ChassisStatus) Initialise(_ context.Context, sess bmc.Session, _ bmc.SDRRepository) {
+func (s *ChassisStatus) Initialise(_ context.Context, sess bmc.Session, _ bmc.SDRRepository) error {
 	s.Session = sess
+	return nil
 }
 
-func (s *ChassisStatus) Describe(ch chan<- *prometheus.Desc) {
+func (*ChassisStatus) Describe(ch chan<- *prometheus.Desc) {
 	ch <- chassisPoweredOn
 	ch <- chassisIntrusion
 	ch <- chassisPowerFault

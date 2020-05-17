@@ -31,7 +31,7 @@ type ProcessorTemperatures struct {
 // Initialise identifies processor temperature sensors given an SDR repository.
 // The session is only used during collection, which is why this function does
 // not accept a context.
-func (c *ProcessorTemperatures) Initialise(_ context.Context, s bmc.Session, sdrr bmc.SDRRepository) {
+func (c *ProcessorTemperatures) Initialise(_ context.Context, s bmc.Session, sdrr bmc.SDRRepository) error {
 	c.Session = s
 	processorFSRs := extractProcessorTempFSRs(sdrr)
 
@@ -56,6 +56,7 @@ func (c *ProcessorTemperatures) Initialise(_ context.Context, s bmc.Session, sdr
 		readers[cpu] = reader
 	}
 	c.sensors = readers
+	return nil
 }
 
 func extractProcessorTempFSRs(sdrr bmc.SDRRepository) map[ipmi.EntityID][]*ipmi.FullSensorRecord {
@@ -79,7 +80,7 @@ func extractProcessorTempFSRs(sdrr bmc.SDRRepository) map[ipmi.EntityID][]*ipmi.
 	return sdrs
 }
 
-func (c *ProcessorTemperatures) Describe(ch chan<- *prometheus.Desc) {
+func (*ProcessorTemperatures) Describe(ch chan<- *prometheus.Desc) {
 	ch <- processorTemperature
 }
 

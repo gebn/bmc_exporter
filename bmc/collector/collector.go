@@ -31,6 +31,14 @@ var (
 		Name:      "provider_requests_total",
 		Help:      "The number of requests made to a session provider.",
 	})
+	initialiseTimeouts = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: namespace,
+		Subsystem: subsystem,
+		Name:      "initialise_timeouts_total",
+		Help: "The number of times we established a session, but failed " +
+			"to retrieve the SDR repo and initialise the subcollectors before " +
+			"we timed out.",
+	})
 	sessionExpiriesTotal = promauto.NewCounter(prometheus.CounterOpts{
 		Namespace: namespace,
 		Subsystem: subsystem,
@@ -176,13 +184,15 @@ func (c *Collector) collect(ctx context.Context, ch chan<- prometheus.Metric) er
 	// in the same scrape. If this is invalid, we have problems - restarting a
 	// session involves potentially hundreds of commands to enumerate the SDR.
 	if c.session == nil {
-		// first scrape, target GCd since last scrape, or last command attempt
-		// failed
+		// first scrape, target GCd since last scrape
 		if err := c.newSession(ctx); err != nil {
 			ch <- prometheus.MustNewConstMetric(up, prometheus.GaugeValue, 0)
 			return fmt.Errorf("could not obtain session for %v: %v", c.Target, err)
 		}
 		if err := c.bmcInfo.Collect(ctx, ch); err != nil {
+			// assume the session is fine - we've only just created it - we'll
+			// try again next scrape with a shorter timeout and recreate if
+			// necessary
 			return err
 		}
 	} else {
@@ -203,8 +213,7 @@ func (c *Collector) collect(ctx context.Context, ch chan<- prometheus.Metric) er
 			defer closeCancel()
 			c.Close(closeCtx)
 			if err := c.newSession(ctx); err != nil {
-				// give up, but don't leave the session in a bad state
-				c.Close(ctx)
+				// give up; newSession() ensures we're left in a clean state
 				ch <- prometheus.MustNewConstMetric(up, prometheus.GaugeValue, 0)
 				return fmt.Errorf("could not obtain session for %v: %v", c.Target, err)
 			}
@@ -238,9 +247,16 @@ func (c *Collector) collect(ctx context.Context, ch chan<- prometheus.Metric) er
 }
 
 // newSession establishes a session with a BMC, and performs discovery to
-// relieve subsequent scrapes of doing this. This method will only return a nil
-// error if c.session != nil. It does not close any existing session.
+// relieve subsequent scrapes of doing this. This method does not close any
+// existing session. It is not necessary to call Close() if it returns a non-nil
+// error.
 func (c *Collector) newSession(ctx context.Context) error {
+	// general point: if there's one thing to be *really* careful of, it's
+	// partially initialised sessions. We have to ensure everything is
+	// initialised successfully, or the collector is left in a clean state for a
+	// retry next time, otherwise we end up trying to invoke methods on a nil
+	// session which doesn't end well.
+
 	providerRequests.Inc() // TODO should be moved to provider itself?
 	session, closer, err := c.Provider.Session(ctx, c.Target)
 	// setting these here in the error case avoids repeatedly trying to close,
@@ -248,20 +264,29 @@ func (c *Collector) newSession(ctx context.Context) error {
 	c.session = session
 	c.closer = closer
 	if err != nil {
+		// provider interface guarantees c.session and c.closer are now nil
 		return err
 	}
 
 	sdrr, err := bmc.RetrieveSDRRepository(ctx, session)
 	if err != nil {
+		c.Close(ctx) // otherwise collector is left partially initialised
+		initialiseTimeouts.Inc()
 		return err
 	}
-	// we make subcollectors implement a common interface for future
-	// flexibility, even if we don't leverage it (yet). This may be useful for
-	// turning subcollectors on and off in future.
-	c.chassisStatus.Initialise(ctx, session, sdrr)
-	c.bmcInfo.Initialise(ctx, session, sdrr)
-	c.processorTemperatures.Initialise(ctx, session, sdrr)
-	c.powerDraw.Initialise(ctx, session, sdrr)
+	subcollectors := []Subcollector{
+		&c.chassisStatus,
+		&c.bmcInfo,
+		&c.processorTemperatures,
+		&c.powerDraw,
+	}
+	for _, subcollector := range subcollectors {
+		if err := subcollector.Initialise(ctx, session, sdrr); err != nil {
+			c.Close(ctx)
+			initialiseTimeouts.Inc()
+			return err
+		}
+	}
 	return nil
 }
 

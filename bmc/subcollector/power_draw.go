@@ -35,7 +35,7 @@ type PowerDraw struct {
 	getPowerReading dcmi.GetPowerReadingCmd
 }
 
-func (c *PowerDraw) Initialise(ctx context.Context, s bmc.Session, sdrr bmc.SDRRepository) {
+func (c *PowerDraw) Initialise(ctx context.Context, s bmc.Session, sdrr bmc.SDRRepository) error {
 	c.Session = s
 	fsrs := extractPowerSupplyFSRs(sdrr)
 	if len(fsrs) > 0 {
@@ -51,10 +51,15 @@ func (c *PowerDraw) Initialise(ctx context.Context, s bmc.Session, sdrr bmc.SDRR
 			readers[psu] = reader
 		}
 		c.sensors = readers
-		return
+		return nil
 	}
 
-	// fall back to DCMI, which gives a single reading for the whole machine
+	// fall back to DCMI, which gives a single reading for the whole machine.
+	// The problem we now have is BMCs may ignore the Get Power Reading command
+	// rather than reject it with an error, so we'll retry, and eventually the
+	// context will expire. We don't know for sure whether the BMC is ignoring
+	// us, or we ran out of time. Some BMCs say they support power management
+	// but ignore the command, so we can't use that mechanism either!
 	c.getPowerReading = dcmi.GetPowerReadingCmd{
 		Req: dcmi.GetPowerReadingReq{
 			Mode: dcmi.SystemPowerStatisticsModeNormal,
@@ -63,9 +68,13 @@ func (c *PowerDraw) Initialise(ctx context.Context, s bmc.Session, sdrr bmc.SDRR
 
 	c.supportsGetPowerReading = true
 	if err := bmc.ValidateResponse(s.SendCommand(ctx, &c.getPowerReading)); err != nil {
-		// let's not try that again
-		c.supportsGetPowerReading = false
+		// only disable if we can say for sure; otherwise we keep trying during
+		// collection
+		if err != context.DeadlineExceeded {
+			c.supportsGetPowerReading = false
+		}
 	}
+	return nil
 }
 
 func extractPowerSupplyFSRs(sdrr bmc.SDRRepository) []*ipmi.FullSensorRecord {
@@ -106,6 +115,10 @@ func (c *PowerDraw) Collect(ctx context.Context, ch chan<- prometheus.Metric) er
 		}
 	case c.supportsGetPowerReading:
 		if err := bmc.ValidateResponse(c.SendCommand(ctx, &c.getPowerReading)); err != nil {
+			if err != context.DeadlineExceeded {
+				// don't try again
+				c.supportsGetPowerReading = false
+			}
 			return err
 		}
 		rsp := &c.getPowerReading.Rsp
