@@ -18,13 +18,14 @@ type Provider interface {
 	// anything, but for the sake of compatibility, it is recommended for this
 	// to be the bare IP address, possibly with a port number on the end. This
 	// method should return an error if the context expires, the addr is not
-	// known, or session establishment fails. The exporter will print all errors
+	// known, or session establishment fails. The returned session and closer
+	// must be nil if the error is non-nil. The exporter will print all errors
 	// received, with the requested addr, so it is not necessary to include this
 	// in the error string.
 	//
 	// The exporter will call this method a maximum of once per scrape. We
 	// assume currently unknown BMCs will be known at some point in the future.
-	// It is recommended for implemtations to retry their credential retrieval
+	// It is recommended for implementations to retry their credential retrieval
 	// logic as makes sense (e.g. perhaps not for a local file, but definitely
 	// for a remote service), and to retry session creation. The caller of this
 	// method does not itself retry as this allows implementations to retry more
@@ -33,12 +34,12 @@ type Provider interface {
 	// part easy. Essentially, it comes down to flexibility.
 	//
 	// For the sake of performance, this function must be safe for unbounded
-	// concurrent use, however it will never be called concurrently for a given
-	// addr value. The exporter will also endeavour to close an addr's session
-	// before calling this method to obtain a new one. As a BMC may choose to
-	// terminate a session at any time, or it may timeout, this method must be
-	// safe for use throughout the exporter's lifetime (not just during startup
-	// or once per addr).
+	// concurrent use, with the guarantee that it will never be called
+	// concurrently for a given addr value. The exporter will also endeavour to
+	// close an addr's session before calling this method to obtain a new one.
+	// As a BMC may choose to terminate a session at any time, or it may
+	// timeout, this method must be safe for use throughout the exporter's
+	// lifetime (not just during startup or once per addr).
 	//
 	// It is strongly recommended for implementations to support hot reloading,
 	// to allow BMCs to be added and removed without having to restart the
