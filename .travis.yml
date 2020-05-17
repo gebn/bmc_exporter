@@ -15,4 +15,4 @@ install:
   rm -f install.sh
 script:
 - bazel build --config=ci //...
-- bazel-bin/linux_amd64_static_pure_stripped/bmc_exporter --version
+- bazel run //:bmc_exporter -- --version
