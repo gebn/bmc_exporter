@@ -37,6 +37,6 @@ def deps(go_repository):
     _maybe(
         go_repository,
         name = "com_github_go_yaml_yaml",
-        tag = "v2.2.8",
+        tag = "v2.3.0",
         importpath = "github.com/go-yaml/yaml",
     )
