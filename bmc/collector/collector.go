@@ -2,18 +2,15 @@ package collector
 
 import (
 	"context"
-	"encoding/hex"
-	"errors"
 	"fmt"
 	"io"
 	"sync/atomic"
 	"time"
 
+	"github.com/gebn/bmc_exporter/bmc/subcollector"
 	"github.com/gebn/bmc_exporter/session"
 
 	"github.com/gebn/bmc"
-	"github.com/gebn/bmc/pkg/dcmi"
-	"github.com/gebn/bmc/pkg/ipmi"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
@@ -21,8 +18,6 @@ import (
 var (
 	namespace = "bmc"
 	subsystem = "collector"
-
-	ErrPowerMgmtInactive = errors.New("BMC indicated power measurement is inactive")
 
 	collectDuration = promauto.NewHistogram(prometheus.HistogramOpts{
 		Namespace: namespace,
@@ -44,70 +39,17 @@ var (
 	})
 
 	// "meta" scrape metrics
-	scrapeDuration = prometheus.NewDesc(
-		"bmc_scrape_duration_seconds",
-		"The time taken to collect all metrics, measured by the exporter.",
-		nil, nil,
-	)
 	up = prometheus.NewDesc(
 		"bmc_up",
 		"1 if the exporter was able to gather all desired metrics this scrape, 0 otherwise.",
 		nil, nil,
 	)
-
-	// concrete metrics about a BMC
-
-	bmcInfo = prometheus.NewDesc(
-		"bmc_info",
-		"Provides the BMC's GUID, firmware, and the version of IPMI used to scrape it. Constant 1.",
-		[]string{
-			"guid",     // Get System GUID
-			"firmware", // Get Device ID
-			"ipmi",     // version used for connection
-		},
-		nil,
-	)
-	chassisPoweredOn = prometheus.NewDesc(
-		"chassis_powered_on",
-		"Whether the system is currently turned on, according to Get Chassis Status. If 0, the system could be in S4/S5, or mechanical off.",
-		nil, nil,
-	)
-	chassisIntrusion = prometheus.NewDesc(
-		"chassis_intrusion",
-		"Whether the system cover is open, according to Get Chassis Status.",
-		nil, nil,
-	)
-	chassisPowerFault = prometheus.NewDesc(
-		"chassis_power_fault",
-		"Whether a fault has been detected in the main power subsystem, according to Get Chassis Status.",
-		nil, nil,
-	)
-	chassisCoolingFault = prometheus.NewDesc(
-		"chassis_cooling_fault",
-		"Whether a cooling or fan fault has been detected, according to Get Chassis Status.",
-		nil, nil,
-	)
-	chassisDriveFault = prometheus.NewDesc(
-		"chassis_drive_fault",
-		"Whether a disk drive in the system is faulty, according to Get Chassis Status.",
-		nil, nil,
-	)
-	chassisPowerDraw = prometheus.NewDesc(
-		"chassis_power_draw_watts",
-		"The instantaneous amount of electricity being used by the machine.",
+	scrapeDuration = prometheus.NewDesc(
+		"bmc_scrape_duration_seconds",
+		"The time taken to collect all metrics, measured by the exporter.",
 		nil, nil,
 	)
 )
-
-// commands contains all the layers needed to perform a collection. This is a
-// single allocation, lasting for the lifetime of the collector, meaning there
-// are no layer allocations during collection.
-type commands struct {
-	getSystemGUID    ipmi.GetSystemGUIDCmd
-	getDeviceID      ipmi.GetDeviceIDCmd
-	getChassisStatus ipmi.GetChassisStatusCmd
-	getPowerReading  dcmi.GetPowerReadingCmd
-}
 
 // Collector implements the custom collector to scrape metrics from a single BMC
 // on demand. Note this struct is only called by a single Target by a single
@@ -141,9 +83,8 @@ type Collector struct {
 
 	// Timeout is the time to allow for each collection before returning what we
 	// have. This exists to ensure fairness when multiple scrapers are querying
-	// the exporter for a given BMC. Collection will return early when either
-	// this duration has passed, or the context expires, whichever happens
-	// first.
+	// the exporter for a given BMC. Collection will return when this duration
+	// has passed, or the context expires (whichever happens first).
 	Timeout time.Duration
 
 	// Context is our way of passing a context to the Collect() method, so we
@@ -159,9 +100,10 @@ type Collector struct {
 	// (ba dum tss).
 	Context context.Context
 
-	// commands contains all the IPMI structures for commands we will send to
-	// the BMC. This reduces the number of allocations each collection.
-	commands
+	bmcInfo               subcollector.BMCInfo
+	chassisStatus         subcollector.ChassisStatus
+	processorTemperatures subcollector.ProcessorTemperatures
+	powerDraw             subcollector.PowerDraw
 
 	// session is the session we've established with the target addr, if any.
 	// This will be nil if no collection has been attempted, or if
@@ -173,12 +115,146 @@ type Collector struct {
 	// is operating over. We close this before trying to establish a new
 	// session.
 	closer io.Closer
+}
 
-	// supportsGetPowerReading indicates whether the BMC supports the DCMI Get
-	// Power Reading command. This is discovered after session establishment,
-	// and controls whether we bother trying to retrieve the power usage for the
-	// remainder of the session.
-	supportsGetPowerReading bool
+// LastCollection returns when this collector was last invoked as nanoseconds
+// since the Unix epoch. If required, it can be converted to a time.Time using
+// time.Unix(0, <value>). It is used by mapper GC to determine which BMCs are no
+// longer being scraped, so their http.Handlers can be removed.
+func (c *Collector) LastCollection() int64 {
+
+	// this doesn't use the normal event dispatch mechanism, as we need to
+	// obtain this value quickly, as all incoming scrapes are blocked - we don't
+	// want to be waiting for current scrapes to finish
+	return atomic.LoadInt64(&c.lastCollection)
+}
+
+func (c *Collector) Describe(d chan<- *prometheus.Desc) {
+	// descriptors are all pre-allocated; we simply send them
+	d <- up
+	d <- scrapeDuration
+
+	// ask each subcollector to describe itself; this is partly why these
+	// objects have the same lifetime as this collector (the other reason being
+	// avoiding reallocs)
+	c.bmcInfo.Describe(d)
+	c.chassisStatus.Describe(d)
+	c.processorTemperatures.Describe(d)
+	c.powerDraw.Describe(d)
+}
+
+// Collect sends a number of commands to the BMC to gather metrics about its
+// current state.
+//
+// Contrary to the Prometheus docs, this method is *not* safe for calling
+// concurrently: a given BMC is always collected by the same goroutine, so
+// concurrent collections are not possible. If it's possible for Prometheus to
+// do a spurious collection, then we're in trouble, so we don't implement the
+// locking to add complexity and give a false sense of security, when in reality
+// there would be deadlocks.
+func (c *Collector) Collect(ch chan<- prometheus.Metric) {
+	start := time.Now()
+	ctx, cancel := context.WithTimeout(c.Context, c.Timeout)
+	defer cancel()
+
+	// this timestamp is used by GC to determine when this target can be deleted
+	atomic.StoreInt64(&c.lastCollection, start.UnixNano())
+
+	c.collect(ctx, ch) // TODO do something with error?
+
+	elapsed := time.Since(start)
+	collectDuration.Observe(elapsed.Seconds())
+	ch <- prometheus.MustNewConstMetric(
+		scrapeDuration,
+		prometheus.GaugeValue,
+		elapsed.Seconds(),
+	)
+}
+
+func (c *Collector) collect(ctx context.Context, ch chan<- prometheus.Metric) error {
+	if c.session == nil {
+		// first scrape, target GCd since last scrape, or last command attempt
+		// failed
+		if err := c.newSession(ctx); err != nil {
+			ch <- prometheus.MustNewConstMetric(up, prometheus.GaugeValue, 0)
+			return fmt.Errorf("could not obtain session for %v: %v", c.Target, err)
+		}
+		if err := c.bmcInfo.Collect(ctx, ch); err != nil {
+			return err
+		}
+	} else {
+		canaryCtx, canaryCancel := context.WithTimeout(ctx, time.Second*2)
+		defer canaryCancel()
+		if err := c.bmcInfo.Collect(canaryCtx, ch); err != nil {
+			// the commands we send here should always succeed, so our session's
+			// either expired, or we've hit a BMC bug. Try again from fresh;
+			// resetting only the session is not enough, as a response packet
+			// from the last session could confuse things.
+			sessionExpiriesTotal.Inc()
+
+			// limit the close to a second; it's unlikely we'll get a reply if
+			// the session really has expired
+			closeCtx, closeCancel := context.WithTimeout(ctx, time.Second)
+			defer closeCancel()
+			c.Close(closeCtx)
+			if err := c.newSession(ctx); err != nil {
+				// give up, but don't leave the session in a bad state
+				c.Close(ctx)
+				ch <- prometheus.MustNewConstMetric(up, prometheus.GaugeValue, 0)
+				return fmt.Errorf("could not obtain session for %v: %v", c.Target, err)
+			}
+			// retry as normal
+			if err := c.bmcInfo.Collect(ctx, ch); err != nil {
+				return err
+			}
+		}
+	}
+	// we could establish a session: BMC is healthy
+	ch <- prometheus.MustNewConstMetric(up, prometheus.GaugeValue, 1)
+
+	// TODO probably should be two different methods...?
+
+	// we don't continue on error, as the only reason for an error is ctx
+	// expiry, in which case there is no time to send any more commands so we
+	// return what we have
+	if err := c.chassisStatus.Collect(ctx, ch); err != nil {
+		return err
+	}
+	if err := c.processorTemperatures.Collect(ctx, ch); err != nil {
+		return err
+	}
+	if err := c.powerDraw.Collect(ctx, ch); err != nil {
+		return err
+	}
+	return nil
+}
+
+// newSession establishes a session with a BMC, and performs discovery to
+// relieve subsequent scrapes of doing this. This method will only return a nil
+// error if c.session != nil. It does not close any existing session.
+func (c *Collector) newSession(ctx context.Context) error {
+	providerRequests.Inc() // TODO should be moved to provider itself?
+	session, closer, err := c.Provider.Session(ctx, c.Target)
+	// setting these here in the error case avoids repeatedly trying to close,
+	// preventing a negative number of open sessions/connections
+	c.session = session
+	c.closer = closer
+	if err != nil {
+		return err
+	}
+
+	sdrr, err := bmc.RetrieveSDRRepository(ctx, session)
+	if err != nil {
+		return err
+	}
+	// we make subcollectors implement a common interface for future
+	// flexibility, even if we don't leverage it (yet). This may be useful for
+	// turning subcollectors on and off in future.
+	c.chassisStatus.Initialise(ctx, session, sdrr)
+	c.bmcInfo.Initialise(ctx, session, sdrr)
+	c.processorTemperatures.Initialise(ctx, session, sdrr)
+	c.powerDraw.Initialise(ctx, session, sdrr)
+	return nil
 }
 
 // Close cleanly terminates the underlying BMC connection and socket that powers
@@ -200,253 +276,4 @@ func (c *Collector) Close(ctx context.Context) {
 
 	c.session = nil
 	c.closer = nil
-}
-
-// LastCollection returns when this collector was last invoked as nanoseconds
-// since the Unix epoch. If required, it can be converted to a time.Time using
-// time.Unix(0, <value>). It is used by mapper GC to determine which BMCs are no
-// longer being scraped, so their http.Handlers can be removed.
-func (c *Collector) LastCollection() int64 {
-
-	// this doesn't use the normal event dispatch mechanism, as we need to
-	// obtain this value quickly, as all incoming scrapes are blocked - we don't
-	// want to be waiting for current scrapes to finish
-	return atomic.LoadInt64(&c.lastCollection)
-}
-
-func (c *Collector) Describe(d chan<- *prometheus.Desc) {
-	// descriptors are all pre-allocated; we simply send them
-	d <- scrapeDuration
-	d <- up
-	d <- bmcInfo
-	d <- chassisPoweredOn
-	d <- chassisIntrusion
-	d <- chassisPowerFault
-	d <- chassisCoolingFault
-	d <- chassisDriveFault
-	d <- chassisPowerDraw
-}
-
-// Collect sends a number of commands to the BMC to gather metrics about its
-// current state.
-//
-// Contrary to the Prometheus docs, this method is *not* safe for calling
-// concurrently: a given BMC is always collected by the same goroutine, so
-// concurrent collections are not possible. If it's possible for Prometheus to
-// do a spurious collection, then we're in trouble, so we don't implement the
-// locking to add complexity and give a false sense of security, when in reality
-// there would be deadlocks.
-func (c *Collector) Collect(ch chan<- prometheus.Metric) {
-	start := time.Now()
-	ctx, cancel := context.WithTimeout(c.Context, c.Timeout)
-	defer cancel()
-
-	// this timestamp is used by GC to determine when this target can be deleted
-	atomic.StoreInt64(&c.lastCollection, start.UnixNano())
-
-	success := true
-	if err := c.collect(ctx, ch); err != nil {
-		success = false
-	}
-
-	ch <- prometheus.MustNewConstMetric(
-		up,
-		prometheus.GaugeValue,
-		boolToFloat64(success),
-	)
-
-	elapsed := time.Since(start)
-	collectDuration.Observe(elapsed.Seconds())
-	ch <- prometheus.MustNewConstMetric(
-		scrapeDuration,
-		prometheus.GaugeValue,
-		elapsed.Seconds(),
-	)
-}
-
-func (c *Collector) collect(ctx context.Context, ch chan<- prometheus.Metric) error {
-	// we don't continue on error, as the only reason for an error is ctx
-	// expiry, in which case there is no time to send any more commands so we
-	// return what we have
-	if err := c.bmcInfo(ctx, ch); err != nil {
-		return err
-	}
-	if err := c.chassisStatus(ctx, ch); err != nil {
-		return err
-	}
-	if c.supportsGetPowerReading {
-		if err := c.powerDraw(ctx, ch); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (c *Collector) bmcInfo(ctx context.Context, ch chan<- prometheus.Metric) error {
-	if err := c.sendCommand(ctx, &c.getSystemGUID); err != nil {
-		return err
-	}
-	if err := c.sendCommand(ctx, &c.getDeviceID); err != nil {
-		return err
-	}
-	guidBuf := [36]byte{}
-	encodeHex(guidBuf[:], c.getSystemGUID.Rsp.GUID)
-	ch <- prometheus.MustNewConstMetric(
-		bmcInfo,
-		prometheus.GaugeValue,
-		1,
-		string(guidBuf[:]),
-		bmc.FirmwareVersion(&c.getDeviceID.Rsp),
-		c.session.Version(),
-	)
-	return nil
-}
-
-func encodeHex(dst []byte, guid [16]byte) {
-	hex.Encode(dst, guid[:4])
-	dst[8] = '-'
-	hex.Encode(dst[9:13], guid[4:6])
-	dst[13] = '-'
-	hex.Encode(dst[14:18], guid[6:8])
-	dst[18] = '-'
-	hex.Encode(dst[19:23], guid[8:10])
-	dst[23] = '-'
-	hex.Encode(dst[24:], guid[10:])
-}
-
-func (c *Collector) chassisStatus(ctx context.Context, ch chan<- prometheus.Metric) error {
-	if err := c.sendCommand(ctx, &c.getChassisStatus); err != nil {
-		return err
-	}
-
-	rsp := &c.getChassisStatus.Rsp
-
-	ch <- prometheus.MustNewConstMetric(
-		chassisPoweredOn,
-		prometheus.GaugeValue,
-		boolToFloat64(rsp.PoweredOn),
-	)
-	ch <- prometheus.MustNewConstMetric(
-		chassisIntrusion,
-		prometheus.GaugeValue,
-		boolToFloat64(rsp.Intrusion),
-	)
-	ch <- prometheus.MustNewConstMetric(
-		chassisPowerFault,
-		prometheus.GaugeValue,
-		boolToFloat64(rsp.PowerFault),
-	)
-	ch <- prometheus.MustNewConstMetric(
-		chassisCoolingFault,
-		prometheus.GaugeValue,
-		boolToFloat64(rsp.CoolingFault),
-	)
-	ch <- prometheus.MustNewConstMetric(
-		chassisDriveFault,
-		prometheus.GaugeValue,
-		boolToFloat64(rsp.DriveFault),
-	)
-
-	return nil
-}
-
-func (c *Collector) powerDraw(ctx context.Context, ch chan<- prometheus.Metric) error {
-	if err := c.sendCommand(ctx, &c.getPowerReading); err != nil {
-		return err
-	}
-	rsp := &c.getPowerReading.Rsp
-	if !rsp.Active {
-		return ErrPowerMgmtInactive
-	}
-	ch <- prometheus.MustNewConstMetric(
-		chassisPowerDraw,
-		prometheus.GaugeValue,
-		float64(rsp.Instantaneous),
-	)
-	return nil
-}
-
-func boolToFloat64(b bool) float64 {
-	if b {
-		return 1
-	}
-	return 0
-}
-
-// sendCommand wraps bmc.Session's SendCommand() method. It ensures a session
-// exists, tries the command, and re-establishes the session if it fails before
-// trying again. To prevent delayed packets messing with responses, it will tear
-// down the session before returning if the last attempt at the command failed.
-func (c *Collector) sendCommand(ctx context.Context, cmd ipmi.Command) error {
-	if c.session == nil {
-		// first scrape, target GCd since last scrape, or last command attempt
-		// failed
-		if err := c.newSession(ctx); err != nil {
-			// retry?
-			return fmt.Errorf("could not obtain session for %v: %v", c.Target, err)
-		}
-	}
-
-	// allow 2s per command, otherwise if the session has timed out, we'll spend
-	// the entire allowance waiting on this and won't have any left to
-	// re-establish
-	cmdFirstCtx, cancel := context.WithTimeout(ctx, time.Second*2)
-	defer cancel()
-	if err := bmc.ValidateResponse(c.session.SendCommand(cmdFirstCtx, cmd)); err != nil {
-		// the commands we send here should always succeed, so our session's
-		// either expired, or we've hit a BMC bug. Try again from fresh;
-		// resetting only the session is not enough, as a response packet from
-		// the last session could confuse things.
-		sessionExpiriesTotal.Inc()
-
-		// limit the close to a second; it's unlikely we'll get a reply if the
-		// session really has expired
-		cancelCtx, cancel := context.WithTimeout(ctx, time.Second)
-		defer cancel()
-		c.Close(cancelCtx)
-		if err := c.newSession(ctx); err != nil {
-			return err
-		}
-
-		// retry once
-		cmdSecondCtx, cancel := context.WithTimeout(ctx, time.Second*2)
-		defer cancel()
-		if err := bmc.ValidateResponse(c.session.SendCommand(cmdSecondCtx, cmd)); err != nil {
-			// give up, but don't leave the session in a bad state
-			c.Close(ctx)
-			return err
-		}
-	}
-
-	return nil
-}
-
-// newSession establishes a session with a BMC, and performs discovery to
-// relieve subsequent scrapes of doing this. This method will only return a nil
-// error if c.session != nil. It does not close any existing session.
-func (c *Collector) newSession(ctx context.Context) error {
-	providerRequests.Inc()
-	session, closer, err := c.Provider.Session(ctx, c.Target)
-	// setting these here in the error case avoids repeatedly trying to close,
-	// preventing a negative number of open sessions/connections
-	c.session = session
-	c.closer = closer
-	if err != nil {
-		return err
-	}
-	c.supportsGetPowerReading = true
-
-	// set request struct fields based on capabilities; as these structs are
-	// specific to this collector, we only have to do this once, and can tailor
-	// it based on what we discover
-	c.getPowerReading.Req.Mode = dcmi.SystemPowerStatisticsModeNormal
-
-	// we don't use sendCommand() here as that could end up in a loop
-	if err := bmc.ValidateResponse(
-		c.session.SendCommand(ctx, &c.getPowerReading)); err != nil {
-		// let's not try that again
-		c.supportsGetPowerReading = false
-	}
-
-	return nil
 }
