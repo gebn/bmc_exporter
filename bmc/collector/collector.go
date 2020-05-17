@@ -41,7 +41,7 @@ var (
 	// "meta" scrape metrics
 	up = prometheus.NewDesc(
 		"bmc_up",
-		"1 if the exporter was able to gather all desired metrics this scrape, 0 otherwise.",
+		"1 if the exporter was able to establish a session, 0 otherwise.",
 		nil, nil,
 	)
 	scrapeDuration = prometheus.NewDesc(
