@@ -1,5 +1,6 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 load("@bazel_gazelle//:def.bzl", "gazelle")
+load("@io_bazel_rules_docker//container:container.bzl", "container_image", "container_push")
 
 # gazelle:prefix github.com/gebn/bmc_exporter
 gazelle(name = "gazelle")
@@ -29,4 +30,21 @@ go_binary(
     pure = "on",
     static = "on",
     visibility = ["//visibility:public"],
+)
+
+container_image(
+    name = "image",
+    cmd = ["/bmc_exporter"],
+    files = [":bmc_exporter"],
+    ports = ["9622/tcp"],
+    stamp = True,  # set correct creation_time
+)
+
+container_push(
+    name = "push",
+    format = "OCI",
+    image = ":image",
+    registry = "registry.hub.docker.com",
+    repository = "gebn/bmc_exporter",
+    tag = "{STABLE_STAMP_COMMIT_SHORT}",
 )

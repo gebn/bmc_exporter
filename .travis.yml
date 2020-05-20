@@ -1,5 +1,7 @@
 os: linux
 language: shell  # N.B. Bazel downloads its own Go SDK
+services:
+- docker
 env:
   global:
   - BAZEL_VERSION=3.1.0
@@ -16,3 +18,5 @@ install:
 script:
 - travis_wait bazel build --config=ci //...
 - bazel run //:bmc_exporter -- --version
+- echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+- bazel run //:push
