@@ -44,7 +44,7 @@ container_push(
     name = "push-commit",
     format = "OCI",
     image = ":image",
-    registry = "docker.io",
+    registry = "index.docker.io",
     repository = "gebn/bmc_exporter",
     tag = "{STABLE_STAMP_COMMIT_SHORT}",
 )
@@ -53,7 +53,7 @@ container_push(
     name = "push-release",
     format = "OCI",
     image = ":image",
-    registry = "docker.io",
+    registry = "index.docker.io",
     repository = "gebn/bmc_exporter",
     tag = "{STABLE_STAMP_VERSION}",
 )
