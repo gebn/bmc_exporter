@@ -54,7 +54,7 @@ The exporter defaults to a file session provider, which reads credentials from a
 ...
 ```
 
-The location of this file defaults to `secrets.yml` in the current working directory, and can be overridden with `--session.static.secrets`.
+The location of this file defaults to `secrets.yml` in the current working directory, and can be overridden with `--secrets.static`.
 Anonymous login and the presence of a "BMC key" (IPMI v2.0 only), while supported by the underlying library, are not currently implemented.
 
 If you require something different, you can implement a custom provider to do practically anything, e.g. retrieve the credentials dynamically from [Vault](https://www.vaultproject.io/).

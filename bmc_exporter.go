@@ -77,8 +77,8 @@ var (
 		"is being scraped by multiple Prometheis.").
 		Default("9s"). // network RTT
 		Duration()
-	staticSecrets = kingpin.Flag("session.static.secrets", "Used by the "+
-		"static session provider to look up BMC credentials.").
+	secretsStatic = kingpin.Flag("secrets.static", "Used by the static "+
+		"session provider to look up BMC credentials.").
 		Default("secrets.yml").
 		String() // we don't use ExistingFile() due to kingpin issue #261
 )
@@ -97,7 +97,7 @@ func main() {
 	kingpin.Version(stamp.Summary())
 	kingpin.Parse()
 
-	provider, err := file.New(*staticSecrets)
+	provider, err := file.New(*secretsStatic)
 	if err != nil {
 		log.Fatal(err)
 	}
