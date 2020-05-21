@@ -77,8 +77,8 @@ var (
 		"is being scraped by multiple Prometheis.").
 		Default("9s"). // network RTT
 		Duration()
-	secretsStatic = kingpin.Flag("secrets.static", "Used by the static "+
-		"session provider to look up BMC credentials.").
+	secretsStatic = kingpin.Flag("secrets.static", "Credentials file used by "+
+		"the static session provider.").
 		Default("secrets.yml").
 		String() // we don't use ExistingFile() due to kingpin issue #261
 )
