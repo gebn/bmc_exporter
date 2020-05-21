@@ -57,7 +57,7 @@ var (
 		[]string{"path"},
 	)
 
-	help = "An IPMI v1.5/2.0 Prometheus exporter."
+	help = "An IPMI v2.0 Prometheus exporter."
 
 	listenAddr = kingpin.Flag("web.listen-address", "Address on which to "+
 		"expose metrics.").
