@@ -14,7 +14,8 @@ import (
 var (
 	powerDraw = prometheus.NewDesc(
 		"power_draw_watts",
-		"The instantaneous amount of electricity being used by the machine.",
+		"The instantaneous amount of electricity being used by the machine, "+
+			"broken down by PSU where possible.",
 		[]string{"psu"}, nil,
 	)
 )

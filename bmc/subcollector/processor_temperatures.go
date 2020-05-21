@@ -13,7 +13,7 @@ import (
 var (
 	processorTemperature = prometheus.NewDesc(
 		"processor_temperature_celsius",
-		"The temperature of a processor die in degrees celsius.",
+		"The temperature of each CPU in degrees celsius.",
 		[]string{"cpu"}, nil,
 	)
 )

@@ -90,7 +90,7 @@ Below is a typical response to `/bmc` for a given target.
     # HELP bmc_scrape_duration_seconds The time taken to collect all metrics, measured by the exporter.
     # TYPE bmc_scrape_duration_seconds gauge
     bmc_scrape_duration_seconds 0.014362754
-    # HELP bmc_up 1 if the exporter was able to gather all desired metrics this scrape, 0 otherwise.
+    # HELP bmc_up 1 if the exporter was able to establish a session, 0 otherwise.
     # TYPE bmc_up gauge
     bmc_up 1
     # HELP chassis_cooling_fault Whether a cooling or fan fault has been detected, according to Get Chassis Status.
@@ -102,19 +102,24 @@ Below is a typical response to `/bmc` for a given target.
     # HELP chassis_intrusion Whether the system cover is open, according to Get Chassis Status.
     # TYPE chassis_intrusion gauge
     chassis_intrusion 0
-    # HELP chassis_power_draw_watts The instantaneous amount of electricity being used by the machine.
-    # TYPE chassis_power_draw_watts gauge
-    chassis_power_draw_watts 259
     # HELP chassis_power_fault Whether a fault has been detected in the main power subsystem, according to Get Chassis Status.
     # TYPE chassis_power_fault gauge
     chassis_power_fault 0
     # HELP chassis_powered_on Whether the system is currently turned on, according to Get Chassis Status. If 0, the system could be in S4/S5, or mechanical off.
     # TYPE chassis_powered_on gauge
     chassis_powered_on 1
+    # HELP power_draw_watts The instantaneous amount of electricity being used by the machine, broken down by PSU where possible.
+    # TYPE power_draw_watts gauge
+    power_draw_watts{psu="1"} 70
+    power_draw_watts{psu="2"} 105
+    # HELP processor_temperature_celsius The temperature of each CPU in degrees celsius.
+    # TYPE processor_temperature_celsius gauge
+    processor_temperature_celsius{cpu="1"} 42
+    processor_temperature_celsius{cpu="2"} 44
 
-If the BMC supports [DCMI](https://www.intel.com/content/dam/www/public/us/en/documents/technical-specifications/dcmi-v1-5-rev-spec.pdf) (an extension of IPMI v2.0), and the machine's PSU supports PMBus, this exporter will expose the machine's power consumption in a `chassis_power_draw_watts` metric.
-If this is not present in the scrape output, it is because the BMC does not satisfy one of these criteria.
-You can use the underlying [`bmc`](https://github.com/gebn/bmc) library to investigate further.
+The PSU(s) in the machine must support PMBus for `power_draw_watts` to be exposed.
+The exporter will try to fetch these values from sensors, falling back to [DCMI](https://www.intel.com/content/dam/www/public/us/en/documents/technical-specifications/dcmi-v1-5-rev-spec.pdf) (an extension of IPMI v2.0) to get an aggregate for the machine.
+You can use the underlying [`bmc`](https://github.com/gebn/bmc) library to further investigate capabilities.
 
 ### Interesting Queries
 
@@ -159,5 +164,5 @@ There is no timeout built into the exporter; we rely on our environment killing 
 
 ## Limitations
 
- - Sensor data besides power use via DCMI is currently unavailable. Issue [#12](https://github.com/gebn/bmc_exporter/issues/12) tracks the progress; unfortunately this requires delving into SDRs, which has so far been avoidable. It will likely take the form of `chassis_(intake|exhaust)_temperature_celsius` and `cpu_temperature_celsius{socket="#"}` metrics.
+ - Only power draw and processor temperature sensor data is currently available. Other sensors are far less standardised, so normalising them in the exporter's output - a key feature - is much harder. Next up is `chassis_(intake|exhaust)_temperature_celsius`.
  - IPMI v1.5, the first to feature IPMI-over-LAN support, is currently unimplemented in the underlying library. Given IPMI v2.0 was first published in 2004, this is hopefully not relevant to most, however for the sake of legacy devices and completeness, it will be added after non-power sensor data is retrievable. The exporter itself is already version-agnostic.
