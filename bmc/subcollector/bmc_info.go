@@ -40,14 +40,9 @@ func (*BMCInfo) Describe(ch chan<- *prometheus.Desc) {
 }
 
 func (c *BMCInfo) Collect(ctx context.Context, ch chan<- prometheus.Metric) error {
-	cmd := &c.getSystemGUID
-	code, err := c.Session.SendCommand(ctx, cmd) // segfault
-	if err := bmc.ValidateResponse(code, err); err != nil {
+	if err := bmc.ValidateResponse(c.SendCommand(ctx, &c.getSystemGUID)); err != nil {
 		return err
 	}
-	//if err := bmc.ValidateResponse(c.SendCommand(ctx, &c.getSystemGUID)); err != nil {
-	//	return err
-	//}
 	if err := bmc.ValidateResponse(c.SendCommand(ctx, &c.getDeviceID)); err != nil {
 		return err
 	}
