@@ -44,7 +44,7 @@ container_push(
     name = "push",
     format = "OCI",
     image = ":image",
-    registry = "registry.hub.docker.com",
+    registry = "docker.io",
     repository = "gebn/bmc_exporter",
     tag = "{STABLE_STAMP_COMMIT_SHORT}",
 )
