@@ -79,7 +79,7 @@ The Prometheus `scrape_config` for this job would look like this:
   - source_labels: [__param_target]
     target_label: instance
   - target_label: __address__
-    replacement: localhost:9622			# the location of the exporter to Prometheus
+    replacement: localhost:9622         # the location of the exporter to Prometheus
 ```
 
 ## Metrics
