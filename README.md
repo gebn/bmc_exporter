@@ -62,7 +62,10 @@ You will be directed to `/bmc?target=<your target>`, hopefully resembling the fo
     processor_temperature_celsius{cpu="1"} 42
     processor_temperature_celsius{cpu="2"} 44
 
-If `bmc_up` has a value of `0`, double check the BMC is reachable from your machine and the credentials are correct using `ipmitool`.
+If `bmc_up` has a value of `0`, double check the BMC is reachable from your machine and the credentials are correct using `ipmitool`:
+
+    ipmitool -I lanplus -H <ip> -U <username> -P <password> -L USER sdr
+
 If `bmc_up` is `1`, congrats, you've scraped your first BMC!
 The Prometheus `scrape_config` for this job would look like this:
 
