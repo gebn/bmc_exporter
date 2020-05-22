@@ -16,8 +16,9 @@ readonly VERSION=${DESCRIBE#v}
 
 main() {
     local output_dir="$1"
-    echo "Creating $VERSION binaries for ${#PLATFORMS[@]} platforms in $output_dir..."
+    echo "Creating $VERSION binaries for ${#PLATFORMS[@]} platforms in $output_dir"
     for toolchain in "${PLATFORMS[@]}"; do
+        echo "Building for $toolchain"
         bazel build \
           --config ci \
           --platforms "@io_bazel_rules_go//go/toolchain:${toolchain}" \
