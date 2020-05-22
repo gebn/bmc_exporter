@@ -10,7 +10,7 @@ They are sometimes referred to by a vendor-specific name, e.g. iDRAC (Dell), iLO
 BMCs have access to various sensors (e.g. CPU temperature and mains power draw), properties of the system (e.g. the serial number) and fault flags (e.g. fan or PSU failure), making them a valuable source of information about a server estate.
 
 This [exporter](https://prometheus.io/docs/instrumenting/exporters/) allows a subset of these metrics to be ingested into [Prometheus](https://prometheus.io/docs/introduction/overview/) in a normalised, safe, and efficient way, that scales to tens of thousands of machines per instance.
-It uses a native implementation of [IPMI](https://www.intel.com/content/dam/www/public/us/en/documents/specification-updates/ipmi-intelligent-platform-mgt-interface-spec-2nd-gen-v2-0-spec-update.pdf), the protocol spoken by BMCs, written with observability in mind, combined with long-lived sessions, to efficiently send the required commands each scrape.
+It uses a [native implementation](https://github.com/gebn/bmc) of [IPMI](https://www.intel.com/content/dam/www/public/us/en/documents/specification-updates/ipmi-intelligent-platform-mgt-interface-spec-2nd-gen-v2-0-spec-update.pdf), the protocol spoken by BMCs, written with observability in mind, combined with long-lived sessions, to efficiently send the required commands each scrape.
 Guarantees can also be provided around commands in-flight to a single BMC and connection limits, both to avoid overwhelming a machine, and to be a considerate neighbour to existing management software.
 The tool has no dependency on any of the conventional IPMI command line tools, and never leaves Go.
 
