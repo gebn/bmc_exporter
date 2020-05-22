@@ -36,6 +36,7 @@ go_binary(
 pkg_tar(
     name = "archive",
     extension = "tar.gz",
+    package_dir = "bmc_exporter",
     srcs = [":bmc_exporter"],
 )
 
