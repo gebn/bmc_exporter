@@ -19,7 +19,9 @@ type Subcollector interface {
 	// subcollector retain the session. We do it this way to avoid allocating a
 	// new subcollector struct each session; instead, subcollectors are bound to
 	// the lifetime of the target's prometheus.Collector. This is also necessary
-	// to ensure Describe() can be called on that collector at any time.
+	// to ensure Describe() can be called on that collector at any time. A
+	// side-effect is detection must not depend on the machine being on and
+	// sensors returning a value.
 	//
 	// Whether this method should return an error is an interesting discussion.
 	// The obvious case is to avoid incomplete initialisation, resulting in us
