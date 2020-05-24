@@ -61,7 +61,7 @@ container_deps()
 
 go_repository(
     name = "com_github_gebn_bmc",
-    commit = "56020a811fb9e0c546e844e0b1982609f342c04d",
+    commit = "e61aa3a35ff6dd7d0c3f4f10be39eb140d96a868",
     importpath = "github.com/gebn/bmc",
 )
 

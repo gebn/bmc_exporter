@@ -63,7 +63,7 @@ func (c credentialsProvider) Session(ctx context.Context, addr string) (bmc.Sess
 	if err != nil {
 		return nil, nil, err
 	}
-	machine, err := bmc.DialV2(addr) // TODO change to .Dial when v1.5 supported
+	machine, err := bmc.Dial(ctx, addr)
 	if err != nil {
 		return nil, nil, err
 	}
