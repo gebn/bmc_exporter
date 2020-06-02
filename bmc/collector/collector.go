@@ -36,7 +36,7 @@ var (
 		Subsystem: subsystem,
 		Name:      "initialise_timeouts_total",
 		Help: "The number of times we established a session, but failed " +
-			"to retrieve the SDR repo and initialise the subcollectors before " +
+			"to retrieve the SDR repo and initialise all subcollectors before " +
 			"we timed out.",
 	})
 	sessionExpiriesTotal = promauto.NewCounter(prometheus.CounterOpts{
