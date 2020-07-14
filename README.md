@@ -1,7 +1,7 @@
 # Prometheus BMC Exporter
 
 [![Build Status](https://travis-ci.org/gebn/bmc_exporter.svg?branch=master)](https://travis-ci.org/gebn/bmc_exporter)
-[![Docker Hub](https://img.shields.io/docker/pulls/gebn/bmc_exporter.svg)](https://hub.docker.com/repository/docker/gebn/bmc_exporter)
+[![Docker Hub](https://img.shields.io/docker/pulls/gebn/bmc_exporter.svg)](https://hub.docker.com/r/gebn/bmc_exporter)
 [![GoDoc](https://godoc.org/github.com/gebn/bmc_exporter?status.svg)](https://godoc.org/github.com/gebn/bmc_exporter)
 [![Go Report Card](https://goreportcard.com/badge/github.com/gebn/bmc_exporter)](https://goreportcard.com/report/github.com/gebn/bmc_exporter)
 
