@@ -4,8 +4,8 @@ services:
 - docker
 env:
   global:
-  - BAZEL_VERSION=3.3.0
-  - BAZEL_SHA256=1ec706d44d5980b27988601bbac8aa3028488ea136a958d0f57086aa1214ca41
+  - BAZEL_VERSION=3.4.1
+  - BAZEL_SHA256=9808adad931ac652e8ff5022a74507c532250c2091d21d6aebc7064573669cc5
 before_install:
 - |
   wget -O install.sh "https://github.com/bazelbuild/bazel/releases/download/${BAZEL_VERSION}/bazel-${BAZEL_VERSION}-installer-linux-x86_64.sh"
