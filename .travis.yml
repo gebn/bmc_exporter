@@ -17,13 +17,12 @@ install:
   rm -f install.sh
 script:
 - travis_wait bazel build --config=ci //...
+- mkdir out
+- bin/release out
 - bazel run //:bmc_exporter -- --version
 - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
 - bazel run //:push-commit
 - if [[ $TRAVIS_TAG ]]; then bazel run //:push-release; fi
-before_deploy:
-  - mkdir out
-  - bin/release out
 deploy:
   provider: releases
   edge: true
