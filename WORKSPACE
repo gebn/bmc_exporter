@@ -30,9 +30,9 @@ gazelle_dependencies()
 
 http_archive(
     name = "com_google_protobuf",
-    sha256 = "e5265d552e12c1f39c72842fa91d84941726026fa056d914ea6a25cd58d7bbf8",
-    strip_prefix = "protobuf-3.12.3",
-    urls = ["https://github.com/protocolbuffers/protobuf/archive/v3.12.3.zip"],
+    sha256 = "1c744a6a1f2c901e68c5521bc275e22bdc66256eeb605c2781923365b7087e5f",
+    strip_prefix = "protobuf-3.13.0",
+    urls = ["https://github.com/protocolbuffers/protobuf/archive/v3.13.0.zip"],
 )
 
 load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
@@ -63,7 +63,7 @@ pip_deps()
 
 go_repository(
     name = "com_github_gebn_bmc",
-    commit = "243ceecf2db397c08cb23008fb6f5e6a459b20aa",
+    commit = "7e87cb260e8a7cf762976288ff3ca8f78a0f8c0c",
     importpath = "github.com/gebn/bmc",
 )
 
