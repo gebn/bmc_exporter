@@ -1,4 +1,5 @@
 os: linux
+dist: focal
 language: shell  # N.B. Bazel downloads its own Go SDK
 services:
 - docker
