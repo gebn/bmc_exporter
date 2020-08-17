@@ -61,6 +61,8 @@ load("@io_bazel_rules_docker//repositories:pip_repositories.bzl", "pip_deps")
 
 pip_deps()
 
+# gazelle:repository go_repository name=org_golang_x_sys importpath=golang.org/x/sys
+
 go_repository(
     name = "com_github_gebn_bmc",
     commit = "7e87cb260e8a7cf762976288ff3ca8f78a0f8c0c",
