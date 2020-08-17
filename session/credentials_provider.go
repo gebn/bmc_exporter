@@ -7,6 +7,16 @@ import (
 
 	"github.com/gebn/bmc"
 	"github.com/gebn/bmc/pkg/ipmi"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+)
+
+// TODO consistent use of credential vs. credentials...
+
+const (
+	namespace = "bmc"
+	subsystem = "provider" // to not collide with bmc lib's own metrics
 )
 
 var (
@@ -15,6 +25,22 @@ var (
 	// it. This is provided for convenience; no branching is done based on this
 	// value being returned.
 	ErrCredentialNotFound = errors.New("no credential found for addr")
+
+	credentialFailures = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: namespace,
+		Subsystem: subsystem,
+		Name:      "credential_failures_total",
+		Help: "The number of times a credentials provider failed to produce " +
+			"the requested credential, for any reason.",
+	})
+	credentialsMissing = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: namespace,
+		Subsystem: subsystem,
+		Name:      "credentials_missing_total",
+		Help: "The number of times a credentials provider has indicated the " +
+			"credential for the target is unknown. Less than or equal to the " +
+			"total number of credential provider failures.",
+	})
 )
 
 // Credentials represents a username and password pair, giving access to a BMC.
@@ -61,6 +87,10 @@ type credentialsProvider struct {
 func (c credentialsProvider) Session(ctx context.Context, addr string) (bmc.Session, io.Closer, error) {
 	creds, err := c.CredentialsRetriever.Credentials(ctx, addr)
 	if err != nil {
+		credentialFailures.Inc()
+		if errors.Is(err, ErrCredentialNotFound) {
+			credentialsMissing.Inc()
+		}
 		return nil, nil, err
 	}
 	machine, err := bmc.Dial(ctx, addr)

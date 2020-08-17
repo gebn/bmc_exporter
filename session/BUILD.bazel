@@ -11,5 +11,7 @@ go_library(
     deps = [
         "@com_github_gebn_bmc//:go_default_library",
         "@com_github_gebn_bmc//pkg/ipmi:go_default_library",
+        "@com_github_prometheus_client_golang//prometheus:go_default_library",
+        "@com_github_prometheus_client_golang//prometheus/promauto:go_default_library",
     ],
 )
