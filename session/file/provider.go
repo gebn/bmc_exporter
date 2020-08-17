@@ -47,14 +47,14 @@ func New(path string) (*Provider, error) {
 
 	d := yaml.NewDecoder(f)
 	d.SetStrict(true)
-	v := map[string]Credentials{}
-	if err := d.Decode(&v); err != nil {
+	m := map[string]Credentials{}
+	if err := d.Decode(&m); err != nil {
 		return nil, err
 	}
 	// copying the map is unsatisfying, but the safest way; this code is not in
 	// the hot path
-	creds := make(map[string]session.Credentials, len(v))
-	for addr, cred := range v {
+	creds := make(map[string]session.Credentials, len(m))
+	for addr, cred := range m {
 		creds[addr] = session.Credentials{
 			Username: cred.Username,
 			Password: []byte(cred.Password),
