@@ -119,8 +119,8 @@ go_repository(
 go_repository(
     name = "com_github_gebn_go_stamp_v2",
     importpath = "github.com/gebn/go-stamp/v2",
-    sum = "h1:JHJIMo11tGAZkGsmaR+3FzKmoP7T02UH9CXMlvEtC/o=",
-    version = "v2.1.0",
+    sum = "h1:CcwDn3ltikVoHfwz9tP/6PpTl0hpqaCd2QBUBEW/oi4=",
+    version = "v2.1.1",
 )
 
 go_repository(
