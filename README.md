@@ -141,7 +141,7 @@ You can maximise the number of fds the exporter may use by running `ulimit -Sn $
 ### Scrape Interval
 
 A scrape interval of 30s is recommended.
-The IPMI specification recommends a 60s (+/-3s) timeout for sessions on the BMC, so provided your scrape interval is below this, there should be the only session for the lifetime of the exporter process.
+The IPMI specification recommends a 60s (+/-3s) timeout for sessions on the BMC, so provided your scrape interval is below this, this should be the only session for the lifetime of the exporter process.
 If deployed in a pair as recommended in the [Deployment](#Deployment) section, this will result in each exporter scraping every 60s, assuming perfect round-robin.
 
 ### Scrape Timeout
