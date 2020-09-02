@@ -152,7 +152,7 @@ Each scrape also has a timeout within the exporter, defaulting to 8s (to allow w
 The idea behind this is that *some* data is better than no data.
 If a BMC is excruciatingly slow, it is better to return a subset of metrics than nothing whatsoever.
 This can only be done if the exporter knows to give up on the BMC before Prometheus gives up on the exporter.
-All targets in Prometheus that hit the exporter should show as `UP`, regardless of the underlying machine.
+Like the [`blackbox_exporter`](https://github.com/prometheus/blackbox_exporter), all targets in Prometheus that hit the exporter should show as `UP`, regardless of the underlying machine.
 If this is not the case, it suggests something wrong with the exporter or Prometheus configuration rather the BMC.
 
 ## Deployment
