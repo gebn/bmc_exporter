@@ -20,7 +20,7 @@ import (
 	"github.com/gebn/bmc_exporter/session/file"
 
 	"github.com/alecthomas/kingpin"
-	"github.com/gebn/go-stamp"
+	"github.com/gebn/go-stamp/v2"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"

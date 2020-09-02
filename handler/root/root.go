@@ -7,7 +7,7 @@ import (
 	"html/template"
 	"net/http"
 
-	"github.com/gebn/go-stamp"
+	"github.com/gebn/go-stamp/v2"
 )
 
 const (

@@ -13,7 +13,7 @@ import (
 
 	"github.com/gebn/bmc_exporter/session"
 
-	"github.com/go-yaml/yaml"
+	"gopkg.in/yaml.v2"
 )
 
 // Credentials represents the username and password for a single target in a

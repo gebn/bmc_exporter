@@ -1,6 +1,8 @@
 os: linux
 dist: focal
-language: shell  # N.B. Bazel downloads its own Go SDK
+language: go
+go:
+- 1.15.1  # Bazel still uses its own version
 services:
 - docker
 env:
@@ -19,6 +21,7 @@ install:
 script:
 - |
   travis_wait bazel build --config=ci //...
+  go build
   mkdir out
   bin/release out
   bazel run //:bmc_exporter -- --version

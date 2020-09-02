@@ -18,7 +18,7 @@ go_library(
         "//handler/root:go_default_library",
         "//session/file:go_default_library",
         "@com_github_alecthomas_kingpin//:go_default_library",
-        "@com_github_gebn_go_stamp//:go_default_library",
+        "@com_github_gebn_go_stamp_v2//:go_default_library",
         "@com_github_prometheus_client_golang//prometheus:go_default_library",
         "@com_github_prometheus_client_golang//prometheus/promauto:go_default_library",
         "@com_github_prometheus_client_golang//prometheus/promhttp:go_default_library",
@@ -35,9 +35,9 @@ go_binary(
 
 pkg_tar(
     name = "archive",
+    srcs = [":bmc_exporter"],
     extension = "tar.gz",
     package_dir = "bmc_exporter",
-    srcs = [":bmc_exporter"],
 )
 
 container_image(
