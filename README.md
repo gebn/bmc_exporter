@@ -20,13 +20,19 @@ Download the [latest release](https://github.com/gebn/bmc_exporter/releases/late
 Create a `secrets.yml` file mapping a sample BMC to its credentials in the following way:
 
 ```yaml
-10.0.0.1:623:                # target configured in Prometheus
+192.0.2.1:623:               # target configured in Prometheus
   username: <username>       # must have USER IPMI privileges
+  password: <password>
+'[2001:db8::1]:623':
+  username: <username>
   password: <password>
 ```
 
+You may use a hostname instead of an IP literal, however the exporter uses long-lived sessions, so may fall behind DNS until the next communication failure and reconnect.
+Literals are preferred for this reason, and also to make config explicit - changes to DNS do not show up in the config's version control history
+
 Start the exporter with `./bmc_exporter [--secrets.static secrets.yml]`.
-Navigate to [http://localhost:9622](http://localhost:9622), and copy the target on the first line of your YAML file into the *Target* text field (e.g. `10.0.0.1:623`), then click *Scrape*.
+Navigate to [http://localhost:9622](http://localhost:9622), and copy the target on the first line of your YAML file into the *Target* text field (e.g. `192.0.2.1:623`), then click *Scrape*.
 You will be directed to `/bmc?target=<your target>`, hopefully resembling the following:
 
     # HELP bmc_info Provides the BMC's GUID, firmware, and the version of IPMI used to scrape it. Constant 1.
@@ -75,7 +81,8 @@ The Prometheus `scrape_config` for this job would look like this:
   metrics_path: /bmc                    # the exporter exposes its own metrics at /metrics
   static_configs:
   - targets:
-    - 10.0.0.1:623                      # the same string used as the key in secrets.yml
+    - 192.0.2.1:623                     # strings corresponding to the keys in secrets.yml
+    - '[2001:db8::1]:623'
   relabel_configs:
   - source_labels: [__address__]
     target_label: __param_target
