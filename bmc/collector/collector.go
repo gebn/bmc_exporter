@@ -39,7 +39,7 @@ var (
 			"to retrieve the SDR repo and initialise all subcollectors before " +
 			"we timed out.",
 	})
-	sessionExpiriesTotal = promauto.NewCounter(prometheus.CounterOpts{
+	sessionExpiries = promauto.NewCounter(prometheus.CounterOpts{
 		Namespace: namespace,
 		Subsystem: subsystem,
 		Name:      "session_expiries_total",
@@ -205,7 +205,7 @@ func (c *Collector) collect(ctx context.Context, ch chan<- prometheus.Metric) er
 			// either expired, or we've hit a BMC bug. Try again from fresh;
 			// resetting only the session is not enough, as a response packet
 			// from the last session could confuse things.
-			sessionExpiriesTotal.Inc()
+			sessionExpiries.Inc()
 
 			// limit the close to a second; it's unlikely we'll get a reply if
 			// the session really has expired
