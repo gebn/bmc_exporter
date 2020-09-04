@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -109,15 +110,20 @@ func main() {
 			Timeout:  *collectTimeout,
 		})
 	}))
-	// must not return early from now on
+	defer mapper.Close()
 
 	registerHandler("/", root.Handler())
 	registerHandler("/bmc", bmc.Handler(mapper, *scrapeTimeout))
 	registerHandler("/metrics", promhttp.Handler())
 
-	srv := &http.Server{
-		Addr: *listenAddr,
+	listener, err := net.Listen("tcp", *listenAddr)
+	if err != nil {
+		log.Printf("failed to start web server: %v", err)
+		return
+	}
+	defer listener.Close()
 
+	srv := &http.Server{
 		// solves is waiting indefinitely before we get to a handler; handlers
 		// are capable of timing out themselves. This isn't intended to ensure
 		// we have time to do something useful with the request - it is only to
@@ -132,7 +138,7 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
+		if err := srv.Serve(listener); err != http.ErrServerClosed {
 			// without the wait group, this line may not be printed in case of
 			// failure
 			log.Printf("server did not close cleanly: %v", err)
@@ -151,7 +157,6 @@ func main() {
 		log.Printf("failed to close listener: %v", err)
 	}
 	wg.Wait()
-	mapper.Close()
 }
 
 // registerHandler adds an instrumented version of the provided handler to the
