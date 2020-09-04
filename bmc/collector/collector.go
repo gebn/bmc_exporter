@@ -45,6 +45,13 @@ var (
 		Name:      "session_expiries_total",
 		Help:      "The number of sessions that have stopped working.",
 	})
+	partialCollections = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: namespace,
+		Subsystem: subsystem,
+		Name:      "partial_collections_total",
+		Help: "The number of collections we ended prematurely to ensure " +
+			"Prometheus received at least some data.",
+	})
 
 	// "meta" scrape metrics
 	up = prometheus.NewDesc(
@@ -168,7 +175,10 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	// this timestamp is used by GC to determine when this target can be deleted
 	atomic.StoreInt64(&c.lastCollection, start.UnixNano())
 
-	c.collect(ctx, ch) // TODO do something with error?
+	if err := c.collect(ctx, ch); err != nil {
+		// context expiry; partial data
+		partialCollections.Inc()
+	}
 
 	elapsed := time.Since(start)
 	collectDuration.Observe(elapsed.Seconds())
