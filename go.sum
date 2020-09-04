@@ -17,8 +17,8 @@ github.com/cespare/xxhash/v2 v2.1.1/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XL
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
-github.com/gebn/bmc v0.0.0-20200902002757-029b92754d9f h1:OgjYEBCE1+abjDKyY0KAJ6ijBLRC6Ro4rHleYdNeJDA=
-github.com/gebn/bmc v0.0.0-20200902002757-029b92754d9f/go.mod h1:VlKWLGIyVIhqHRj4hp9lx20lZcSn9PgNKRmDwcyRT7w=
+github.com/gebn/bmc v0.0.0-20200904230046-a5643220ab2a h1:AyC9EwIaY0IwLIxj/tZZDdFgNQ9MJk0jlE+luzCTIMo=
+github.com/gebn/bmc v0.0.0-20200904230046-a5643220ab2a/go.mod h1:VlKWLGIyVIhqHRj4hp9lx20lZcSn9PgNKRmDwcyRT7w=
 github.com/gebn/go-stamp/v2 v2.1.1 h1:CcwDn3ltikVoHfwz9tP/6PpTl0hpqaCd2QBUBEW/oi4=
 github.com/gebn/go-stamp/v2 v2.1.1/go.mod h1:IlKfd1cXLzXmEsDRY5V65RNhwVj4DduWS7XGnx6QRYs=
 github.com/go-kit/kit v0.8.0/go.mod h1:xBxKIO96dXMWWy0MnWVtmwkA9/13aqxPnvrjFYMA2as=

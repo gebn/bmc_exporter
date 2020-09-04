@@ -112,8 +112,8 @@ go_repository(
 go_repository(
     name = "com_github_gebn_bmc",
     importpath = "github.com/gebn/bmc",
-    sum = "h1:OgjYEBCE1+abjDKyY0KAJ6ijBLRC6Ro4rHleYdNeJDA=",
-    version = "v0.0.0-20200902002757-029b92754d9f",
+    sum = "h1:AyC9EwIaY0IwLIxj/tZZDdFgNQ9MJk0jlE+luzCTIMo=",
+    version = "v0.0.0-20200904230046-a5643220ab2a",
 )
 
 go_repository(
