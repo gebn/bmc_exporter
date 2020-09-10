@@ -2,7 +2,7 @@ os: linux
 dist: focal
 language: go
 go:
-- 1.15.1  # Bazel still uses its own version
+- 1.15.2  # Bazel still uses its own version
 services:
 - docker
 env:
