@@ -2,13 +2,13 @@ os: linux
 dist: focal
 language: go
 go:
-- 1.15.4  # Bazel still uses its own version
+- 1.16  # Bazel still uses its own version
 services:
 - docker
 env:
   global:
-  - BAZEL_VERSION=3.7.0
-  - BAZEL_SHA256=621089dc4d396612603a55f18f55acded29d9b21534ebaa99406a0b4b05029fb
+  - BAZEL_VERSION=4.0.0
+  - BAZEL_SHA256=bd7a3a583a18640f58308c26e654239d412adaa833b6b6a7b57a216ab62fabc2
 before_install:
 - |
   wget -O install.sh "https://github.com/bazelbuild/bazel/releases/download/${BAZEL_VERSION}/bazel-${BAZEL_VERSION}-installer-linux-x86_64.sh"
