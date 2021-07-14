@@ -131,6 +131,7 @@ func (c *PowerDraw) Collect(ctx context.Context, ch chan<- prometheus.Metric) er
 			powerDraw,
 			prometheus.GaugeValue,
 			float64(rsp.Instantaneous),
+			"", // an empty label is equivalent to a missing label
 		)
 	}
 	return nil
