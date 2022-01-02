@@ -124,7 +124,7 @@ func main() {
 	defer listener.Close()
 
 	srv := &http.Server{
-		// solves is waiting indefinitely before we get to a handler; handlers
+		// solves us waiting indefinitely before we get to a handler; handlers
 		// are capable of timing out themselves. This isn't intended to ensure
 		// we have time to do something useful with the request - it is only to
 		// avoid a possible goroutine leak (#39).
