@@ -17,6 +17,9 @@ jobs:
         - goos: linux
           goarch: arm
           goarm: 6
+        - goos: linux
+          goarch: arm
+          goarm: 7
     env:
       GOOS: ${{ matrix.goos }}
       GOARCH: ${{ matrix.goarch }}
@@ -62,7 +65,7 @@ jobs:
       with:
         context: .
         push: true
-        platforms: linux/amd64,linux/arm64/v8,linux/arm/v6
+        platforms: linux/amd64,linux/arm64/v8,linux/arm/v6,linux/arm/v7
         tags: gebn/bmc_exporter:${{ steps.vars.outputs.tag }}
   release:
     runs-on: ubuntu-latest
