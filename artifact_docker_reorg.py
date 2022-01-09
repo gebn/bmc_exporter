@@ -7,7 +7,7 @@ import sys
 import tempfile
 from pathlib import Path, PurePath
 
-ARM_PATTERN = re.compile(r'arm(?P<version>v\d)')
+_ARM_PATTERN = re.compile(r'arm(?P<version>v\d)')
 
 
 def docker_target_platform(platform: str) -> PurePath:
@@ -23,7 +23,7 @@ def docker_target_platform(platform: str) -> PurePath:
     os, rest = platform.split('-', 1)
     pieces = [os]
 
-    match = ARM_PATTERN.fullmatch(rest)
+    match = _ARM_PATTERN.fullmatch(rest)
     if match:
         pieces.extend(['arm', match.group('version')])
     else:
