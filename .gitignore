@@ -1,1 +1,6 @@
-bazel-*
+.idea
+
+__pycache__
+
+bmc_exporter
+bmc_exporter.exe
