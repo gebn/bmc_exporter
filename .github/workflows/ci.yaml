@@ -21,6 +21,7 @@ jobs:
       GOOS: ${{ matrix.goos }}
       GOARCH: ${{ matrix.goarch }}
       GOARM: ${{ matrix.goarm }}
+      CGO_ENABLED: 0  # static binary
     steps:
     - uses: actions/checkout@v2
     - uses: actions/setup-go@v2
