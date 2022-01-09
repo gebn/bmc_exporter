@@ -1,6 +1,8 @@
-from pathlib import PurePath
 import unittest
+from pathlib import PurePath
+
 from artifact_docker_reorg import docker_target_platform
+
 
 class TestDockerTargetPlatform(unittest.TestCase):
     def test_valid(self):
