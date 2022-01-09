@@ -1,8 +1,8 @@
 # Prometheus BMC Exporter
 
-[![Build Status](https://travis-ci.org/gebn/bmc_exporter.svg?branch=master)](https://travis-ci.org/gebn/bmc_exporter)
+[![CI](https://github.com/gebn/bmc_exporter/actions/workflows/ci.yaml/badge.svg)](https://github.com/gebn/bmc_exporter/actions/workflows/ci.yaml)
 [![Docker Hub](https://img.shields.io/docker/pulls/gebn/bmc_exporter.svg)](https://hub.docker.com/r/gebn/bmc_exporter)
-[![GoDoc](https://godoc.org/github.com/gebn/bmc_exporter?status.svg)](https://godoc.org/github.com/gebn/bmc_exporter)
+[![Go Reference](https://pkg.go.dev/badge/github.com/gebn/bmc_exporter.svg)](https://pkg.go.dev/github.com/gebn/bmc_exporter)
 [![Go Report Card](https://goreportcard.com/badge/github.com/gebn/bmc_exporter)](https://goreportcard.com/report/github.com/gebn/bmc_exporter)
 
 Baseboard Management Controllers (BMCs) are embedded devices found on server motherboards.
