@@ -13,7 +13,7 @@ import (
 
 	"github.com/gebn/bmc_exporter/session"
 
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 // Credentials represents the username and password for a single target in a
@@ -46,7 +46,7 @@ func New(path string) (*Provider, error) {
 	defer f.Close()
 
 	d := yaml.NewDecoder(f)
-	d.SetStrict(true)
+	d.KnownFields(true)
 	m := map[string]Credentials{}
 	if err := d.Decode(&m); err != nil {
 		return nil, err
