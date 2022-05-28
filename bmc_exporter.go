@@ -25,7 +25,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	_ "go.uber.org/automaxprocs"
+	"go.uber.org/automaxprocs/maxprocs"
 )
 
 var (
@@ -86,6 +86,7 @@ var (
 )
 
 func init() {
+	maxprocs.Set() // use the library this way to avoid logging when CPU quota is undefined
 	for _, path := range []string{"/", "/bmc", "/metrics"} {
 		requestDuration.WithLabelValues(path)
 	}
