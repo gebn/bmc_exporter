@@ -65,8 +65,8 @@ github.com/envoyproxy/go-control-plane v0.9.0/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymF
 github.com/envoyproxy/go-control-plane v0.9.1-0.20191026205805-5f8ba28d4473/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
 github.com/envoyproxy/go-control-plane v0.9.4/go.mod h1:6rpuAdCZL397s3pYoYcLgu1mIlRU8Am5FuJP05cCM98=
 github.com/envoyproxy/protoc-gen-validate v0.1.0/go.mod h1:iSmxcyjqTsJpI2R4NaDN7+kN2VEUnK/pcBlmesArF7c=
-github.com/gebn/bmc v0.0.0-20220803210434-685784c3556c h1:exYlRPT666FhZ2Iuh9CkZXroxaeAhX6lCelR+roQVhE=
-github.com/gebn/bmc v0.0.0-20220803210434-685784c3556c/go.mod h1:KTo4hJ66ZmIs4aojfDCbq6ORjmm7RrPovslwv/SM1NQ=
+github.com/gebn/bmc v0.0.0-20220829160417-3d373cc38ed5 h1:rmcGug93W8h+JJjuB5Ute/qJADzs9PSTgupRBpOI1no=
+github.com/gebn/bmc v0.0.0-20220829160417-3d373cc38ed5/go.mod h1:dICM+sUmMyM4mlFmJ6AjgWM1lDKI36usP+iBSamQwqQ=
 github.com/gebn/go-stamp/v2 v2.2.1 h1:z3/WV0lspS1O6zcfX9JKzRMm4rm4MzMga+ixpBX/DW0=
 github.com/gebn/go-stamp/v2 v2.2.1/go.mod h1:M1/KJX/XIKLmcX+QMHW3ejumh5KAPO9tsjYFpPCYTGo=
 github.com/go-gl/glfw v0.0.0-20190409004039-e6da0acd62b1/go.mod h1:vR7hzQXu2zJy9AVAgeJqvqgH9Q5CA+iKCZ2gyEVpxRU=

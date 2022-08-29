@@ -4,7 +4,7 @@ go 1.17
 
 require (
 	github.com/alecthomas/kingpin v2.2.6+incompatible
-	github.com/gebn/bmc v0.0.0-20220803210434-685784c3556c
+	github.com/gebn/bmc v0.0.0-20220829160417-3d373cc38ed5
 	github.com/gebn/go-stamp/v2 v2.2.1
 	github.com/prometheus/client_golang v1.13.0
 	go.uber.org/automaxprocs v1.5.1
