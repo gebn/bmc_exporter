@@ -4,7 +4,7 @@ go 1.17
 
 require (
 	github.com/alecthomas/kingpin v2.2.6+incompatible
-	github.com/gebn/bmc v0.0.0-20220829160417-3d373cc38ed5
+	github.com/gebn/bmc v0.0.0-20220906165420-30abb01db32e
 	github.com/gebn/go-stamp/v2 v2.2.1
 	github.com/prometheus/client_golang v1.13.0
 	go.uber.org/automaxprocs v1.5.1
@@ -23,6 +23,6 @@ require (
 	github.com/prometheus/client_model v0.2.1-0.20220405155808-6dc836ede0b5 // indirect
 	github.com/prometheus/common v0.37.0 // indirect
 	github.com/prometheus/procfs v0.8.0 // indirect
-	golang.org/x/sys v0.0.0-20220825204002-c680a09ffe64 // indirect
+	golang.org/x/sys v0.0.0-20220906135438-9e1f76180b77 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 )
