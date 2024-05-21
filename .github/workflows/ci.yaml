@@ -27,18 +27,18 @@ jobs:
       CGO_ENABLED: 0  # static binary
     steps:
     - uses: actions/checkout@v4
-    - uses: actions/setup-go@v4
+    - uses: actions/setup-go@v5
       with:
         go-version: 1.22.0
     - run: make dist
     - id: vars
       run: echo "distpath=$(make distpath)" >> $GITHUB_OUTPUT
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: ${{ steps.vars.outputs.distpath }}
         path: ${{ steps.vars.outputs.distpath }}
     - run: sha256sum ${{ steps.vars.outputs.distpath }} > ${{ steps.vars.outputs.distpath }}.sha256
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: ${{ steps.vars.outputs.distpath }}.sha256
         path: ${{ steps.vars.outputs.distpath }}.sha256
@@ -47,7 +47,7 @@ jobs:
     needs: [test, build]  # do not build an image if tests failed
     steps:
     - uses: actions/checkout@v4
-    - uses: actions/download-artifact@v3
+    - uses: actions/download-artifact@v4
       with:
         path: artifacts
     - run: |
@@ -72,10 +72,10 @@ jobs:
     needs: [test, build]
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
-    - uses: actions/download-artifact@v3
+    - uses: actions/download-artifact@v4
       with:
         path: artifacts
-    - uses: softprops/action-gh-release@v1
+    - uses: softprops/action-gh-release@v2
       with:
         draft: true
         prerelease: ${{ contains(github.ref, '-') }}
