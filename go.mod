@@ -1,6 +1,6 @@
 module github.com/gebn/bmc_exporter
 
-go 1.21
+go 1.23
 
 require (
 	github.com/alecthomas/kingpin v2.2.6+incompatible
